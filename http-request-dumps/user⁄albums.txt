@@ -1,0 +1,16 @@
+GET https://ru.laneapi.com/user/albums HTTP/2.0
+authorization: Bearer <token>
+x-app-version: 
+x-accept-red: 1
+x-client-meta: rQv5UUA46JDw8heDSvMr7bde_vt1OHkg
+x-core-token: sqY-qHiYf43YkZmyhUTmRtjSCewpntiHbHvs_8GpDUnHexoLCmCJzsTTpgwudd_jMiTrhUoJBJy9EAeedA7wFQIOlg3xaMLeZh5O3qCdYxJ6NBTuTjcU-YPynCQm5epPkH5qLbu5BKMBxM28kZ7k20Xd6X5UybYx6ViKe1pd5aMGPpxtjZEi1miqNpu8bU2dlGfooboywJ1blD-BIiyUwSh.
+x-request-trace-id: 7ecc88c6-4665-ab89-118d-4a222ead8243
+accept-language: ru
+ldi: <ldi>
+tz: Europe/Moscow
+x-app-version: 207
+x-platform: android
+x-theme: light
+user-agent: LaneMusic/1.0 (Android; Mobile)
+accept-encoding: gzip
+

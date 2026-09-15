@@ -1,0 +1,16 @@
+GET https://ru.laneapi.com/playlist/lane_likes/tracks?page=1&pageSize=50 HTTP/2.0
+authorization: Bearer <token>
+x-app-version: 
+x-accept-red: 1
+x-request-trace-id: c825bf7b-5e0e-9000-1c6c-390610bfa0ef
+x-core-token: WVJMp-saLwLGX9rXNVWYkBdrgTVkiJyXF8IDUJlAf0jNUy1yonN0HaZcJ90n8ecBHGnVmICNxhU90B-FlFUWkkctlBIJW9tsgOu_gNPm2WEvtZLtiFnIIM0sZ2KPK2-YcKiOEsDy9PdV1NMtELJym5C03AmZRcUGj-JWsHSsn8AkC2zVM1IoFQU3O_pDlZPsiFuyqhpoFi3K_J9HW4HL0oz.
+x-client-meta: NV__--mwOox1Iivnt2tboMuD12GGI74S
+accept-language: ru
+ldi: <ldi>
+tz: Europe/Moscow
+x-app-version: 207
+x-platform: android
+x-theme: light
+user-agent: LaneMusic/1.0 (Android; Mobile)
+accept-encoding: gzip
+

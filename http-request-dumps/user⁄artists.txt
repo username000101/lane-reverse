@@ -1,0 +1,16 @@
+GET https://ru.laneapi.com/user/artists HTTP/2.0
+authorization: Bearer <token>
+x-app-version: 
+x-accept-red: 1
+x-core-token: RSHWrTx0WzK02EtKUFtk-RuZgH4R5rfOLpFQA4bXSeyDpiup9G9Hr45Vay1W2s49AYfRXEJZuwxjf3TBA8dzIBeLUfGd0q_frmTXvXUjWLYMBPhhYFdE1ukeBVtw3CzEQzPyJ-_fxQRWbeaLLmLqSfmGF-9RuxfnWOMYwKXmlgfu66PK2KeLn60-sMsLRlp-e6C4D3vDkNRYFfT29Vt-ADE.
+x-client-meta: esvXLt6X0Ul2gChpNgMwQdhZBy98FfjD
+x-request-trace-id: 79582bd2-18e6-9f9f-5d5d-0a6cf955aa61
+accept-language: ru
+ldi: <ldi>
+tz: Europe/Moscow
+x-app-version: 207
+x-platform: android
+x-theme: light
+user-agent: LaneMusic/1.0 (Android; Mobile)
+accept-encoding: gzip
+

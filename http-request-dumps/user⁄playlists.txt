@@ -1,0 +1,16 @@
+GET https://ru.laneapi.com/user/playlists HTTP/2.0
+authorization: Bearer <token>
+x-app-version:
+x-accept-red: 1
+x-client-meta: MIIb3eVwkg_2C3dkH285S-tduk2QlTK7
+x-request-trace-id: d50c29e5-1736-282b-2248-35730c977db3
+x-core-token: HtKV-uRdEgTp5MdTQs4kM46m2CzshVH3r73zTWwnUBFlj32Gy44dVvBo_O3lcKgHFv6z2CVmylz-CbefKHjLCiFBABgGICwQbREAGZvuLJ7HcG4OBxmso1moaYxHEEVDIFX3XyblFkPPcvYri-M4QJyaljqovTOX9pXGdzAeDZUssxJ99C0TMd15j7jm6R5UT75VGw6MJJsqFvDfRs9w5VG.
+accept-language: ru
+ldi: <ldi>
+tz: Europe/Moscow
+x-app-version: 207
+x-platform: android
+x-theme: light
+user-agent: LaneMusic/1.0 (Android; Mobile)
+accept-encoding: gzip
+

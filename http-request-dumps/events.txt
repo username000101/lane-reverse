@@ -1,0 +1,18 @@
+GET https://ru.laneapi.com/events HTTP/2.0
+x-connection-quality: FAST
+x-is-vpn: false
+authorization: Bearer <token>
+x-app-version:
+x-accept-red: 1
+x-request-trace-id: 0ef35fc4-e80a-b13b-74ed-4c9acd325e7d
+x-client-meta: s__VKGLt2ajlmu1AMXq_9CofEVbbH1Za
+x-core-token: gcfH66iArUW2iyTVQq6fSzORYtjrG6TL6d7nXHT6tokxmVIfXpxTznPG3SfJ9tVomjjFKO6RNztzbc4B8oaMVUSVkfWE2r0dHbiCV6Xz5G3i5sK1ItRd3pp3ZJt1ZNYUFhmaO1mLnPcg3h8Kli7WYH1LpOYiQkxldVPD-2-VSfjW7dwVLgCet3mE9J-IyFzbPQo-4Y_skbd5zjf1q6mfttA.
+accept-language: ru
+ldi: <ldi>
+tz: Europe/Moscow
+x-app-version: 207
+x-platform: android
+x-theme: light
+user-agent: LaneMusic/1.0 (Android; Mobile)
+accept-encoding: gzip
+
