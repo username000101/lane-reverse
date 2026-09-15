@@ -1,4 +1,4 @@
-# Frida script for fetching /proc/self/maps of the com.skiy.lane (Lane)
+# Frida cкрипт для дампа /proc/self/maps
 
 import frida
 import sys

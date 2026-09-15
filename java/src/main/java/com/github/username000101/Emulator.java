@@ -12,7 +12,6 @@ import com.github.unidbg.linux.android.dvm.VM;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Objects;
 
 public class Emulator {
     private final AndroidEmulator emulator;
@@ -40,11 +39,6 @@ public class Emulator {
         module = dm.getModule();
 
         BNITManager = vm.resolveClass(className);
-    }
-
-    @FunctionalInterface
-    public interface IOHandler {
-        FileResult<AndroidFileIO> handleIO(int flags, com.github.unidbg.Emulator<AndroidFileIO> emulator);
     }
 
     @FunctionalInterface

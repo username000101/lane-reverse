@@ -1,9 +1,3 @@
-// lane-reverse
-// attempt to port Lane
-//
-// usage:
-// <executable> <bearer token> <libraries directory> <overlay directory>
-
 package com.github.username000101;
 
 import com.github.unidbg.file.FileResult;
@@ -15,7 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class Main {
-    static void main(String[] args) throws IOException, InterruptedException {
+    static void main(String[] args) throws IOException {
         if (args.length < 3)
             HelpCommand.printHelp();
 
