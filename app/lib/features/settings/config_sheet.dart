@@ -7,7 +7,7 @@ import '../auth/auth_controller.dart';
 class ConfigSheet extends StatelessWidget {
   final AuthController authController;
 
-  const ConfigSheet({Key? key, required this.authController}) : super(key: key);
+  const ConfigSheet({super.key, required this.authController});
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +58,7 @@ class ConfigSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'Используйте эти данные в консольных клиентах (crates/laned-cli, crates/laned-tui):',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
@@ -126,12 +126,12 @@ class ConfigSheet extends StatelessWidget {
                   authController.logout();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.rose.withOpacity(0.12),
+                  backgroundColor: AppColors.rose.withValues(alpha: 0.12),
                   foregroundColor: AppColors.rose,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: AppColors.rose.withOpacity(0.25)),
+                    side: BorderSide(color: AppColors.rose.withValues(alpha: 0.25)),
                   ),
                 ),
                 icon: const Icon(Icons.logout_rounded, size: 16),

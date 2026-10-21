@@ -7,7 +7,7 @@ import 'auth_controller.dart';
 class AuthScreen extends StatefulWidget {
   final AuthController controller;
 
-  const AuthScreen({Key? key, required this.controller}) : super(key: key);
+  const AuthScreen({super.key, required this.controller});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -78,9 +78,9 @@ class _AuthScreenState extends State<AuthScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.cyan.withOpacity(0.12),
+                            color: AppColors.cyan.withValues(alpha: 0.12),
                             border: Border.all(
-                                color: AppColors.cyan.withOpacity(0.3)),
+                                color: AppColors.cyan.withValues(alpha: 0.3)),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
@@ -108,7 +108,7 @@ class _AuthScreenState extends State<AuthScreen>
                         border: Border.all(color: AppColors.borderSubtle),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             blurRadius: 40,
                             offset: const Offset(0, 16),
                           ),
@@ -121,12 +121,12 @@ class _AuthScreenState extends State<AuthScreen>
 
                     const SizedBox(height: 24),
                     // Security note
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.shield_outlined,
                             size: 14, color: AppColors.textMuted),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text(
                           'Подпись BNIT v1.4.7 • Без логина и пароля',
                           style: TextStyle(
@@ -160,7 +160,7 @@ class _AuthScreenState extends State<AuthScreen>
           ),
         ),
         const SizedBox(height: 8),
-        Text(
+        const Text(
           'Авторизуйтесь через официального Telegram-бота @lane_music_bot без ввода учётных данных.',
           style: TextStyle(
             fontSize: 13,
@@ -229,7 +229,7 @@ class _AuthScreenState extends State<AuthScreen>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 20,
               ),
             ],
@@ -250,7 +250,7 @@ class _AuthScreenState extends State<AuthScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Text(
+        const Text(
           'Отсканируйте камерой или перейдите в бот:',
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
@@ -305,9 +305,9 @@ class _AuthScreenState extends State<AuthScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: AppColors.mint.withOpacity(0.06),
+            color: AppColors.mint.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.mint.withOpacity(0.2)),
+            border: Border.all(color: AppColors.mint.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
@@ -322,7 +322,7 @@ class _AuthScreenState extends State<AuthScreen>
                       color: AppColors.mint,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.mint.withOpacity(0.6),
+                          color: AppColors.mint.withValues(alpha: 0.6),
                           blurRadius: 8,
                         ),
                       ],

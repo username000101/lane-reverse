@@ -4,7 +4,6 @@ import '../constants/api_constants.dart';
 import '../crypto/bnit.dart';
 import '../models/lane_playlist.dart';
 import '../models/lane_track.dart';
-import '../models/lane_user.dart';
 
 class LaneApiException implements Exception {
   final int statusCode;
@@ -38,14 +37,13 @@ class LaneApiClient {
     bool requiresAuth = true,
   }) async {
     final ldi = deviceId ?? '';
+    final canonQ = Bnit.canonicalQuery(query);
     final signed = Bnit.build(
       method: method.toUpperCase(),
       path: path,
-      query: query,
+      query: canonQ,
       body: body,
     );
-
-    final canonQ = Bnit.canonicalQuery(query);
     final urlStr =
         '${ApiConstants.baseUrl}$path${canonQ.isNotEmpty ? '?$canonQ' : ''}';
     final uri = Uri.parse(urlStr);

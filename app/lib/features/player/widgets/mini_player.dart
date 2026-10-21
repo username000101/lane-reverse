@@ -7,7 +7,7 @@ import 'full_player_sheet.dart';
 class MiniPlayer extends StatelessWidget {
   final PlayerController controller;
 
-  const MiniPlayer({Key? key, required this.controller}) : super(key: key);
+  const MiniPlayer({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +20,12 @@ class MiniPlayer extends StatelessWidget {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: AppColors.surfaceElevated.withOpacity(0.95),
+            color: AppColors.surfaceElevated.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.borderStrong),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),

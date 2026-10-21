@@ -26,7 +26,6 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme.dark(
-        background: AppColors.background,
         surface: AppColors.surface,
         primary: AppColors.textMain,
         secondary: AppColors.cyan,
@@ -45,7 +44,7 @@ class AppTheme {
           letterSpacing: -0.02,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -60,12 +59,12 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
-      sliderTheme: SliderThemeData(
+      sliderTheme: const SliderThemeData(
         activeTrackColor: AppColors.cyan,
         inactiveTrackColor: AppColors.borderStrong,
         thumbColor: Colors.white,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+        overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
         trackHeight: 3.5,
       ),
     );

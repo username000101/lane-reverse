@@ -222,6 +222,12 @@ class Bnit {
     return b;
   }
 
+  static Uint8List _u32be(int num) {
+    final b = Uint8List(4);
+    ByteData.view(b.buffer).setUint32(0, num & 0xFFFFFFFF, Endian.big);
+    return b;
+  }
+
   static String _bytesToHex(List<int> bytes) {
     final sb = StringBuffer();
     for (final b in bytes) {
@@ -269,25 +275,23 @@ class Bnit {
     final payload = rc4(rc4Key, bodyBytes);
 
     // msg1 = method:path:query:ts:nonce:field:boot_id:inode
-    final canonQ = canonicalQuery(query);
-    final msg1Parts = [
-      method,
-      ':',
-      path,
-      ':',
-      canonQ,
-      ':',
-      ts,
-      ':',
-      nonceHex,
-      ':',
-      payload.isNotEmpty ? _bytesToHex(payload) : '',
-      ':',
-      bId,
-      ':',
-      inod,
+    final msg1Bytes = [
+      ...latin1.encode(method),
+      0x3a, // ':'
+      ...latin1.encode(path),
+      0x3a,
+      ...latin1.encode(query),
+      0x3a,
+      ...latin1.encode(ts),
+      0x3a,
+      ...latin1.encode(nonceHex),
+      0x3a,
+      ...payload, // raw bytes!
+      0x3a,
+      ...latin1.encode(bId),
+      0x3a,
+      ...latin1.encode(inod),
     ];
-    final msg1Bytes = latin1.encode(msg1Parts.join());
 
     final hmacDigest = Hmac(sha256, key).convert(msg1Bytes);
     final hmacHex = hmacDigest.toString();
@@ -296,7 +300,7 @@ class Bnit {
     final flag = bodyBytes.isNotEmpty ? '1' : '0';
     final envelope = '$hmacHex|$ts|$nonceHex|$bId|$inod|$flag';
 
-    final key2 = _u32le(randList[4]);
+    final key2 = _u32be(randList[4]);
     final encryptedEnvelope = tokenCipher(key2, latin1.encode(envelope));
     final tokenBlob = [...key2, ...encryptedEnvelope];
     final coreToken = customBase64Encode(tokenBlob);

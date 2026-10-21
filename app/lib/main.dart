@@ -26,11 +26,11 @@ class LaneApp extends StatelessWidget {
   final PlayerController playerController;
 
   const LaneApp({
-    Key? key,
+    super.key,
     required this.apiClient,
     required this.authController,
     required this.playerController,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

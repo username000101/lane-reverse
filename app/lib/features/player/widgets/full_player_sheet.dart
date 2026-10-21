@@ -6,7 +6,7 @@ import '../player_controller.dart';
 class FullPlayerSheet extends StatelessWidget {
   final PlayerController controller;
 
-  const FullPlayerSheet({Key? key, required this.controller}) : super(key: key);
+  const FullPlayerSheet({super.key, required this.controller});
 
   String _formatDuration(Duration d) {
     final m = d.inMinutes;
@@ -71,12 +71,12 @@ class FullPlayerSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.cyan.withOpacity(0.12),
+                            color: AppColors.cyan.withValues(alpha: 0.12),
                             blurRadius: 50,
                             offset: const Offset(0, 14),
                           ),
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             blurRadius: 30,
                             offset: const Offset(0, 10),
                           ),
@@ -276,9 +276,9 @@ class FullPlayerSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.cyan.withOpacity(0.12),
+          color: AppColors.cyan.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.cyan.withOpacity(0.3)),
+          border: Border.all(color: AppColors.cyan.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

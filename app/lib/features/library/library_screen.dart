@@ -15,11 +15,11 @@ class LibraryScreen extends StatefulWidget {
   final LaneApiClient apiClient;
 
   const LibraryScreen({
-    Key? key,
+    super.key,
     required this.authController,
     required this.playerController,
     required this.apiClient,
-  }) : super(key: key);
+  });
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -383,7 +383,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? Colors.black.withOpacity(0.12)
+                        ? Colors.black.withValues(alpha: 0.12)
                         : AppColors.borderStrong,
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -414,7 +414,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
         return Material(
           color: isCurrent
-              ? AppColors.cyan.withOpacity(0.08)
+              ? AppColors.cyan.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
