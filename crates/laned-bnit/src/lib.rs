@@ -350,26 +350,56 @@ pub struct Output {
 /// Same five arguments as `BNITManager.cdrl`.
 /// Canonical form of the query that goes into `msg1`.
 ///
-/// The app builds it from the parsed URL: unique parameter names, sorted,
-/// joined as `name=value` with `&`. Signing the raw string works by accident
-/// only when the parameters are already in alphabetical order.
+/// The server signs the **decoded** query: values (and names) are
+/// percent-decoded first, then de-duplicated, sorted by name and joined as
+/// `name=value` with `&`.
+///
+/// So `q=golden%20resort` is signed as `q=golden resort`, and `q=%D0%B3...`
+/// as raw UTF-8 text. Only the decoded form matters, not the wire encoding.
 pub fn canonical_query(query: &str) -> String {
     let mut seen = std::collections::HashSet::new();
-    let mut pairs: Vec<(&str, &str)> = query
+    let mut pairs: Vec<(String, String)> = query
         .split('&')
         .filter(|s| !s.is_empty())
         .map(|kv| match kv.split_once('=') {
-            Some((k, v)) => (k, v),
-            None => (kv, ""),
+            Some((k, v)) => (pct_decode(k), pct_decode(v)),
+            None => (pct_decode(kv), String::new()),
         })
-        .filter(|(k, _)| seen.insert(*k))
+        .filter(|(k, _)| seen.insert(k.clone()))
         .collect();
-    pairs.sort_by(|a, b| a.0.cmp(b.0));
+    pairs.sort_by(|a, b| a.0.cmp(&b.0));
     pairs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join("&")
+}
+
+/// Decode `%XX` escapes and `+` (form-encoding semantics) to UTF-8 text.
+pub fn pct_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Ok(h), Ok(l)) = (
+                u8::from_str_radix(&s[i + 1..i + 2], 16),
+                u8::from_str_radix(&s[i + 2..i + 3], 16),
+            ) {
+                out.push(h * 16 + l);
+                i += 3;
+                continue;
+            }
+        }
+        if b[i] == b'+' {
+            out.push(b' ');
+            i += 1;
+            continue;
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// Decrypt a `red` response body (see `X-Core-Red` / `X-Resp-Nonce`).
@@ -667,4 +697,27 @@ pub fn random_inode() -> String {
     }
     let n = u32::from_le_bytes(b) % 900_000 + 100_000;
     n.to_string()
+}
+
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+
+    #[test]
+    fn query_is_decoded_before_signing() {
+        assert_eq!(canonical_query("q=test%20drive"), "q=test drive");
+        assert_eq!(canonical_query("q=test+drive"), "q=test drive");
+        assert_eq!(canonical_query("q=%D0%B3%D0%BE%D0%BB"), "q=гол");
+        assert_eq!(
+            canonical_query("platform=all&q=test%20drive&ver=1"),
+            "platform=all&q=test drive&ver=1"
+        );
+        // sorted after decoding, names de-duplicated
+        assert_eq!(canonical_query("b=2&a=1&a=3"), "a=1&b=2");
+    }
+
+    #[test]
+    fn encoded_ampersand_does_not_split() {
+        assert_eq!(canonical_query("q=a%26b"), "q=a&b");
+    }
 }
