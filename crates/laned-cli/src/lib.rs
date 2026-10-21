@@ -83,8 +83,9 @@ impl LaneClient {
         query: &str,
         body: &[u8],
     ) -> Result<LaneResponse, String> {
-        let q = canonical_query(query);
-        self.send_with_sign(method, path, &q, &q, body)
+        // sign the decoded form, but send the query exactly as given
+        let signed = canonical_query(query);
+        self.send_with_sign(method, path, query, &signed, body)
     }
 
     /// Send `wire_query` but sign `sign_query` (they may differ on purpose).

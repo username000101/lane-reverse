@@ -358,6 +358,28 @@ fn cmd_download(args: &[String]) {
     }
 }
 
+/// Percent-decode a query component (`+` stays a literal plus).
+fn pct_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Ok(h), Ok(l)) = (
+                u8::from_str_radix(&s[i + 1..i + 2], 16),
+                u8::from_str_radix(&s[i + 2..i + 3], 16),
+            ) {
+                out.push(h * 16 + l);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// Candidate ways the server may canonicalise the query before signing.
 fn query_variants(wire: &str) -> Vec<(&'static str, String, String)> {
     let mut seen = std::collections::HashSet::new();
@@ -384,12 +406,43 @@ fn query_variants(wire: &str) -> Vec<(&'static str, String, String)> {
     let names_sorted = sorted.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>().join("&");
     let sorted_q = join(&sorted);
 
+    let decoded: Vec<(String, String)> = pairs
+        .iter()
+        .map(|(k, v)| (k.clone(), pct_decode(v)))
+        .collect();
+    let decoded_q = join(&decoded);
+    let mut decoded_sorted = decoded.clone();
+    decoded_sorted.sort_by(|a, b| a.0.cmp(&b.0));
+    let decoded_sorted_q = join(&decoded_sorted);
+
+    let lower_hex = sorted_q.to_lowercase();
+    let double = sorted_q.replace('%', "%25");
+
     vec![
         ("sign=raw            wire=raw", wire.to_string(), wire.to_string()),
         ("sign=sorted         wire=raw", sorted_q.clone(), wire.to_string()),
         ("sign=names          wire=raw", names_raw, wire.to_string()),
         ("sign=names_sorted   wire=raw", names_sorted, wire.to_string()),
-        ("sign=sorted         wire=sorted", sorted_q.clone(), sorted_q),
+        ("sign=sorted         wire=sorted", sorted_q.clone(), sorted_q.clone()),
+        ("sign=decoded        wire=raw", decoded_q, wire.to_string()),
+        ("sign=decoded_sorted wire=raw", decoded_sorted_q.clone(), wire.to_string()),
+        ("sign=lowercase_hex  wire=raw", lower_hex, wire.to_string()),
+        ("sign=double_encoded wire=raw", double, wire.to_string()),
+        (
+            "sign=encoded+plus   wire=raw",
+            sorted_q.replace("%20", "+"),
+            wire.to_string(),
+        ),
+        (
+            "sign=decoded+plus   wire=raw",
+            decoded_sorted_q.replace(' ', "+"),
+            wire.to_string(),
+        ),
+        (
+            "sign=decoded_sorted wire=decoded",
+            decoded_sorted_q.clone(),
+            decoded_sorted_q,
+        ),
     ]
 }
 
@@ -481,7 +534,9 @@ fn cmd_gen(args: &[String]) {
     let body = flag(args, "--body").unwrap_or("");
     let ts: i64 = flag(args, "--timestamp").and_then(|s| s.parse().ok()).unwrap_or(0);
 
-    let out = build(method, path, query, body.as_bytes(), ts);
+    // --query is the wire form; the signature is computed over the decoded one
+    let signed_query = canonical_query(query);
+    let out = build(method, path, &signed_query, body.as_bytes(), ts);
 
     if let Some(file) = flag(args, "--body-out") {
         if let Err(e) = fs::write(file, &out.payload) {
