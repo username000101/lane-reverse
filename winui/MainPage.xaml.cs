@@ -14,20 +14,17 @@ public sealed partial class MainPage : Page
 {
     private string _authDeviceId = string.Empty;
     private DispatcherTimer? _authPollTimer;
-    private readonly ObservableCollection<LanePlaylist> _playlists = new();
     private readonly ObservableCollection<LaneTrack> _displayedTracks = new();
     private List<LaneTrack> _allTracks = new();
-    private LanePlaylist? _selectedPlaylist;
+    private List<LanePlaylist> _userPlaylists = new();
     private bool _isScrubbing = false;
 
     public MainPage()
     {
         InitializeComponent();
 
-        PlaylistsListView.ItemsSource = _playlists;
         TracksListView.ItemsSource = _displayedTracks;
 
-        // Subscribe to PlayerService events
         App.Player.PlaybackStateChanged += Player_PlaybackStateChanged;
         App.Player.PositionChanged += Player_PositionChanged;
         App.Player.TrackChanged += Player_TrackChanged;
@@ -59,13 +56,13 @@ public sealed partial class MainPage : Page
     private void ShowAuthView()
     {
         AuthContainer.Visibility = Visibility.Visible;
-        AppContainer.Visibility = Visibility.Collapsed;
+        NavView.Visibility = Visibility.Collapsed;
     }
 
     private void ShowAppView()
     {
         AuthContainer.Visibility = Visibility.Collapsed;
-        AppContainer.Visibility = Visibility.Visible;
+        NavView.Visibility = Visibility.Visible;
     }
 
     private async void StartAuthFlow()
@@ -75,7 +72,6 @@ public sealed partial class MainPage : Page
 
         string botUrl = $"https://t.me/lane_music_bot?start=auth{_authDeviceId}";
 
-        // Generate high-resolution QR code PNG in memory
         try
         {
             using var generator = new QRCodeGenerator();
@@ -99,7 +95,6 @@ public sealed partial class MainPage : Page
             System.Diagnostics.Debug.WriteLine($"QR generation error: {ex.Message}");
         }
 
-        // Start polling loop
         _authPollTimer?.Stop();
         _authPollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _authPollTimer.Tick += AuthPollTimer_Tick;
@@ -148,16 +143,26 @@ public sealed partial class MainPage : Page
             var user = await App.ApiClient.GetProfileAsync();
             if (user != null)
             {
-                UserNameText.Text = user.DisplayName;
-                UserVipText.Text = user.IsVip ? "LANE VIP" : "FREE";
+                ProfileNavItem.Content = user.DisplayName;
+                VipInfoBadge.Visibility = user.IsVip ? Visibility.Visible : Visibility.Collapsed;
             }
             else if (App.CurrentSession?.User != null)
             {
-                UserNameText.Text = App.CurrentSession.User.DisplayName;
+                ProfileNavItem.Content = App.CurrentSession.User.DisplayName;
+                VipInfoBadge.Visibility = (App.CurrentSession.User.IsVip) ? Visibility.Visible : Visibility.Collapsed;
             }
 
             var playlists = await App.ApiClient.GetPlaylistsAsync();
-            _playlists.Clear();
+            _userPlaylists = playlists;
+
+            // Remove any dynamically added playlist items from previous runs
+            var itemsToRemove = NavView.MenuItems.OfType<NavigationViewItem>()
+                .Where(item => item != FavoritesNavItem)
+                .ToList();
+            foreach (var item in itemsToRemove)
+            {
+                NavView.MenuItems.Remove(item);
+            }
 
             LanePlaylist? likesPlaylist = null;
             foreach (var pl in playlists)
@@ -168,17 +173,23 @@ public sealed partial class MainPage : Page
                 }
                 else
                 {
-                    _playlists.Add(pl);
+                    var navItem = new NavigationViewItem
+                    {
+                        Content = pl.RealTitle,
+                        Tag = pl.RealId,
+                        Icon = new FontIcon { Glyph = "\uE8D6" },
+                        InfoBadge = new InfoBadge { Value = pl.TotalTracks }
+                    };
+                    NavView.MenuItems.Add(navItem);
                 }
             }
 
             if (likesPlaylist != null)
             {
-                FavCountText.Text = likesPlaylist.TotalTracks.ToString();
+                FavCountBadge.Value = likesPlaylist.TotalTracks;
             }
 
-            // Load favorites by default
-            await LoadPlaylistTracksAsync(likesPlaylist?.RealId ?? "lane_likes", "Мне нравится");
+            await LoadPlaylistTracksAsync("lane_likes", "Мне нравится");
         }
         catch (Exception ex)
         {
@@ -190,10 +201,20 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async Task LoadPlaylistTracksAsync(string playlistId, string playlistTitle)
+    private async Task LoadPlaylistTracksAsync(string playlistId, string playlistTitle, string? coverUrl = null)
     {
         TracksLoadingRing.IsActive = true;
         CurrentPlaylistTitle.Text = playlistTitle;
+
+        if (!string.IsNullOrEmpty(coverUrl))
+        {
+            PlaylistCoverImage.Source = new BitmapImage(new Uri(coverUrl));
+            PlaylistCoverImage.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            PlaylistCoverImage.Visibility = Visibility.Collapsed;
+        }
 
         try
         {
@@ -206,7 +227,7 @@ public sealed partial class MainPage : Page
             CurrentPlaylistSubtitle.Text = $"{tracks.Count} треков • Стриминг {App.Player.Quality}";
             if (playlistId == "lane_likes")
             {
-                FavCountText.Text = tracks.Count.ToString();
+                FavCountBadge.Value = tracks.Count;
             }
         }
         catch (Exception ex)
@@ -219,27 +240,29 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void FavoritesNavButton_Click(object sender, RoutedEventArgs e)
+    private async void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        PlaylistsListView.SelectedItem = null;
-        await LoadPlaylistTracksAsync("lane_likes", "Мне нравится");
-    }
-
-    private async void PlaylistsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (PlaylistsListView.SelectedItem is LanePlaylist selected)
+        if (args.SelectedItem is NavigationViewItem item)
         {
-            _selectedPlaylist = selected;
-            await LoadPlaylistTracksAsync(selected.RealId, selected.RealTitle);
+            string tag = item.Tag?.ToString() ?? "lane_likes";
+            if (tag == "lane_likes")
+            {
+                await LoadPlaylistTracksAsync("lane_likes", "Мне нравится");
+            }
+            else
+            {
+                var pl = _userPlaylists.FirstOrDefault(p => p.RealId == tag);
+                await LoadPlaylistTracksAsync(tag, item.Content?.ToString() ?? "Плейлист", pl?.RealCoverUrl);
+            }
         }
     }
 
-    private void TrackSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         ApplyTrackFilter(sender.Text);
     }
 
-    private void TrackSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
     {
         ApplyTrackFilter(args.QueryText);
     }
@@ -317,7 +340,7 @@ public sealed partial class MainPage : Page
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            PlayPauseIcon.Glyph = App.Player.IsPlaying ? "\uE769" : "\uE768";
+            PlayPauseIcon.Symbol = App.Player.IsPlaying ? Symbol.Pause : Symbol.Play;
         });
     }
 
@@ -380,9 +403,9 @@ public sealed partial class MainPage : Page
 
     #endregion
 
-    #region Dialogs & Settings
+    #region Footer Navigation (Settings & Logout)
 
-    private async void ConfigButton_Click(object sender, RoutedEventArgs e)
+    private async void ConfigNavItem_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
     {
         if (App.CurrentSession == null) return;
 
@@ -418,14 +441,13 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void LogoutButton_Click(object sender, RoutedEventArgs e)
+    private void LogoutNavItem_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
     {
         SessionStorage.Clear();
         App.CurrentSession = null;
         App.ApiClient.Token = null;
         App.ApiClient.DeviceId = null;
 
-        _playlists.Clear();
         _displayedTracks.Clear();
         _allTracks.Clear();
 
