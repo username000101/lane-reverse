@@ -53,7 +53,10 @@ function guard(handler) {
     } catch (err) {
       console.error('[lane-web]', err && err.stack ? err.stack : err);
       if (!res.writableEnded) {
-        fail(res, err && err.status ? err.status : 500, 'внутренняя ошибка сервера', 'INTERNAL');
+        const status = err && err.status ? err.status : 500;
+        const msg = err && err.message ? err.message : 'внутренняя ошибка сервера';
+        const code = err && err.code ? err.code : 'INTERNAL';
+        fail(res, status, msg, code);
       }
     }
   };

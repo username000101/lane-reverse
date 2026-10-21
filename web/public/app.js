@@ -1,1061 +1,844 @@
 'use strict';
 
-/* =========================================================================
-   Lane Web — клиент
-   ========================================================================= */
+/**
+ * Lane Proxy Gateway — Frontend Controller
+ * Minimalist, high-performance, responsive audio workspace.
+ */
 
-const $ = (id) => document.getElementById(id);
+(function () {
+  // --- DOM Elements Cache ---
+  const els = {
+    viewAuth: document.getElementById('view-auth'),
+    viewApp: document.getElementById('view-app'),
+    upstreamPill: document.getElementById('upstream-pill'),
+    userBar: document.getElementById('user-bar'),
+    unauthStatus: document.getElementById('unauth-status'),
+    userAvatar: document.getElementById('user-avatar'),
+    userName: document.getElementById('user-name'),
+    userHandle: document.getElementById('user-handle'),
+    btnLogout: document.getElementById('btn-logout'),
+    btnOpenConfig: document.getElementById('btn-open-config'),
 
-const els = {
-  landing: $('landing'),
-  app: $('app'),
-  player: $('player'),
-  audio: $('audio'),
-  modal: $('auth-modal'),
-  authBody: $('auth-body'),
-  trackList: $('track-list'),
-  playlistList: $('playlist-list'),
-  toasts: $('toasts'),
-  topLogin: $('top-login'),
-  userChip: $('user-chip'),
-  quality: $('quality'),
-  seek: $('seek'),
-  volume: $('volume'),
-};
+    // Auth Screen
+    authIdle: document.getElementById('auth-idle'),
+    authActive: document.getElementById('auth-active'),
+    btnStartAuth: document.getElementById('btn-start-auth'),
+    tabQr: document.getElementById('tab-qr'),
+    tabDirect: document.getElementById('tab-direct'),
+    paneQr: document.getElementById('pane-qr'),
+    paneDirect: document.getElementById('pane-direct'),
+    qrCanvas: document.getElementById('qr-canvas'),
+    btnTgLink: document.getElementById('btn-tg-link'),
+    authUrlInput: document.getElementById('auth-url-input'),
+    btnCopyUrl: document.getElementById('btn-copy-url'),
+    btnRestartAuth: document.getElementById('btn-restart-auth'),
+    pollMessage: document.getElementById('poll-message'),
+    pollTimerText: document.getElementById('poll-timer-text'),
+    pollProgress: document.getElementById('poll-progress'),
 
-const state = {
-  user: null,
-  ldi: null,
-  playlists: [],
-  playlistId: null,
-  playlist: null,
-  tracks: [],
-  page: 1,
-  totalPages: 1,
-  totalItems: 0,
-  current: null,
-  queue: [],
-  refId: null,
-  stream: null,
-  quality: localStorage.getItem('lane.quality') || 'HIGH',
-  volume: 0.9,
-  auth: { url: '', id: '', attempts: 0, run: 0 },
-  sessionLost: false,
-};
+    // Dashboard
+    dashAvatar: document.getElementById('dash-avatar'),
+    dashName: document.getElementById('dash-name'),
+    dashBadge: document.getElementById('dash-badge'),
+    dashLdi: document.getElementById('dash-ldi'),
+    btnCopyLdi: document.getElementById('btn-copy-ldi'),
+    btnDashExport: document.getElementById('btn-dash-export'),
+    shelfNav: document.getElementById('shelf-nav'),
+    searchTracks: document.getElementById('search-tracks'),
+    btnClearSearch: document.getElementById('btn-clear-search'),
+    activePlTitle: document.getElementById('active-pl-title'),
+    activePlDetails: document.getElementById('active-pl-details'),
+    btnPlayAll: document.getElementById('btn-play-all'),
+    tracksList: document.getElementById('tracks-list'),
+    tracksEmpty: document.getElementById('tracks-empty'),
+    tracksPagination: document.getElementById('tracks-pagination'),
+    btnLoadMore: document.getElementById('btn-load-more'),
 
-let authRun = 0;
-let pollTimer = null;
-let streamSeq = 0;
-let retriedStream = 0;
-let seeking = false;
+    // Player
+    playerBar: document.getElementById('player-bar'),
+    playerCover: document.getElementById('player-cover'),
+    playerTitle: document.getElementById('player-title'),
+    playerArtist: document.getElementById('player-artist'),
+    playerEq: document.getElementById('player-eq'),
+    ctrlPrev: document.getElementById('ctrl-prev'),
+    ctrlPlay: document.getElementById('ctrl-play'),
+    ctrlPlayIcon: document.getElementById('ctrl-play-icon'),
+    ctrlNext: document.getElementById('ctrl-next'),
+    timeCurrent: document.getElementById('time-current'),
+    timeTotal: document.getElementById('time-total'),
+    seekSlider: document.getElementById('seek-slider'),
+    streamQuality: document.getElementById('stream-quality'),
+    btnVolMute: document.getElementById('btn-vol-mute'),
+    volIcon: document.getElementById('vol-icon'),
+    volumeSlider: document.getElementById('volume-slider'),
+    audio: document.getElementById('audio-player'),
 
-/* ------------------------------ утилиты ------------------------------- */
+    // Modal
+    modalConfig: document.getElementById('modal-config'),
+    modalConfigBackdrop: document.getElementById('modal-config-backdrop'),
+    btnCloseModal: document.getElementById('btn-close-modal'),
+    codeConfigText: document.getElementById('code-config-text'),
+    btnCopyConfig: document.getElementById('btn-copy-config'),
+    btnDownloadConfig: document.getElementById('btn-download-config'),
 
-const esc = (value) =>
-  String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => {
-    switch (ch) {
-      case '&': return '&amp;';
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '"': return '&quot;';
-      default: return '&#39;';
-    }
-  });
+    // Toasts
+    toasts: document.getElementById('toasts'),
+  };
 
-function safeUrl(value) {
-  if (!value) return '';
-  try {
-    const url = new URL(String(value), location.href);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
-    if (url.protocol === 'http:' && url.hostname !== 'localhost') url.protocol = 'https:';
-    return url.href.replace(/["'\\\s]/g, '');
-  } catch {
-    return '';
-  }
-}
-
-function coverStyle(url) {
-  const safe = safeUrl(url);
-  const gradient = 'linear-gradient(135deg,#2c1c58,#0d1428)';
-  return safe
-    ? `background-image:url('${safe}'),${gradient}`
-    : `background-image:${gradient}`;
-}
-
-function plural(count, one, few, many) {
-  const n = Math.abs(count) % 100;
-  const n1 = n % 10;
-  if (n > 10 && n < 20) return many;
-  if (n1 > 1 && n1 < 5) return few;
-  if (n1 === 1) return one;
-  return many;
-}
-
-function fmtTime(seconds) {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-  const total = Math.floor(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function initials(name) {
-  const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-function setFill(input, percent) {
-  if (!input) return;
-  input.style.setProperty('--fill', `${Math.max(0, Math.min(100, percent))}%`);
-}
-
-/* -------------------------------- API ---------------------------------- */
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    method: options.method || 'GET',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: {
-      accept: 'application/json',
-      ...(options.body ? { 'content-type': 'application/json' } : {}),
+  // --- State ---
+  const state = {
+    session: null,
+    auth: {
+      id: null,
+      url: null,
+      pollTimer: null,
+      countdownTimer: null,
+      startedAt: null,
+      expiresAt: null,
+      attempts: 0,
+      maxAttempts: 25,
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+    playlists: [],
+    activePlaylistId: 'lane_likes',
+    tracks: [],
+    filteredTracks: [],
+    page: 1,
+    pageSize: 50,
+    hasMore: false,
+    searchQuery: '',
 
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
+    // Player
+    currentTrack: null,
+    currentTrackIndex: -1,
+    isPlaying: false,
+    quality: localStorage.getItem('lane_quality') || 'ULTRA',
+    volume: parseFloat(localStorage.getItem('lane_volume') || '0.9'),
+    isMuted: false,
+    isSeeking: false,
+    configData: null,
+  };
+
+  // --- API Helper ---
+  async function api(path, options = {}) {
+    const res = await fetch(path, {
+      method: options.method || 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, data };
   }
 
-  if (!res.ok) {
-    const error = new Error((data && (data.error || data.message)) || `HTTP ${res.status}`);
-    error.status = res.status;
-    error.code = data && data.code;
-    if (res.status === 401) handleSessionLost(error);
-    throw error;
+  // --- Toast Notifications ---
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type === 'success' ? 'toast-success' : ''}`;
+    toast.innerHTML = `
+      <svg class="icon sm toast-icon"><use href="#${type === 'success' ? 'i-check' : 'i-shield'}"/></svg>
+      <span>${escapeHtml(message)}</span>
+    `;
+    els.toasts.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(10px)';
+      toast.style.transition = 'all 0.25s ease';
+      setTimeout(() => toast.remove(), 260);
+    }, 3200);
   }
 
-  return data;
-}
-
-/* ------------------------------- тосты --------------------------------- */
-
-function toast(message, kind = 'info') {
-  const node = document.createElement('div');
-  node.className = `toast${kind === 'error' ? ' error' : ''}`;
-  node.textContent = message;
-  els.toasts.appendChild(node);
-  setTimeout(() => {
-    node.classList.add('is-out');
-    setTimeout(() => node.remove(), 240);
-  }, 4200);
-}
-
-/* ------------------------------ сессия --------------------------------- */
-
-function handleSessionLost(error) {
-  if (state.sessionLost) return;
-  state.sessionLost = true;
-  toast((error && error.message) || 'Сессия истекла', 'error');
-  setTimeout(() => resetToLanding(), 900);
-}
-
-function renderUser() {
-  const user = state.user || {};
-  const name =
-    user.displayedName || user.username || user.name || user.laneId || 'Слушатель';
-  const sub = user.username ? `@${user.username}` : user.laneId ? `lane id ${user.laneId}` : 'Telegram';
-
-  $('top-name').textContent = name;
-  $('profile-name').textContent = name;
-  $('profile-sub').textContent = sub;
-
-  const avatarUrl = safeUrl(user.avatarUrl || user.avatar || user.profileImageUrl);
-  for (const [id, node] of [
-    ['profile-avatar', $('profile-avatar')],
-    ['top-avatar', $('top-avatar')],
-  ]) {
-    node.textContent = avatarUrl ? '' : initials(name);
-    node.style.backgroundImage = avatarUrl
-      ? `url("${avatarUrl}"), linear-gradient(140deg,#7c3aed,#db2777)`
-      : 'linear-gradient(140deg,#7c3aed,#db2777)';
-    node.style.backgroundSize = avatarUrl ? 'cover' : '';
-    node.style.backgroundPosition = 'center';
-  }
-}
-
-function enterApp(me) {
-  state.user = (me && me.user) || null;
-  state.ldi = (me && me.ldi) || null;
-  state.sessionLost = false;
-
-  els.landing.hidden = true;
-  els.app.hidden = false;
-  document.body.classList.add('in-app');
-  els.topLogin.hidden = true;
-  els.userChip.hidden = false;
-
-  renderUser();
-  loadPlaylists();
-  window.scrollTo({ top: 0, behavior: 'auto' });
-}
-
-function showLanding() {
-  els.landing.hidden = false;
-  els.app.hidden = true;
-  els.player.hidden = true;
-  document.body.classList.remove('in-app');
-  els.topLogin.hidden = false;
-  els.userChip.hidden = true;
-}
-
-function resetToLanding() {
-  try {
-    els.audio.pause();
-  } catch {}
-  els.audio.removeAttribute('src');
-  els.audio.load();
-
-  state.user = null;
-  state.ldi = null;
-  state.playlists = [];
-  state.playlistId = null;
-  state.playlist = null;
-  state.tracks = [];
-  state.current = null;
-  state.queue = [];
-  state.stream = null;
-  state.sessionLost = false;
-  els.playlistList.innerHTML = '';
-  els.trackList.innerHTML = '';
-
-  showLanding();
-}
-
-async function logout() {
-  try {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-  } catch {}
-  resetToLanding();
-  toast('Вы вышли из аккаунта');
-}
-
-/* ----------------------------- плейлисты -------------------------------- */
-
-function playlistCount(playlist) {
-  if (Array.isArray(playlist.playlistTracksIds)) return playlist.playlistTracksIds.length;
-  if (typeof playlist.tracksCount === 'number') return playlist.tracksCount;
-  return 0;
-}
-
-function renderPlaylists() {
-  if (!state.playlists.length) {
-    els.playlistList.innerHTML = '<div class="pl-empty">Плейлистов нет</div>';
-    $('playlist-count').textContent = '0';
-    return;
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, (s) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[s]));
   }
 
-  $('playlist-count').textContent = String(state.playlists.length);
-  els.playlistList.innerHTML = state.playlists
-    .map((playlist) => {
-      const id = String(playlist.playlistId || '');
-      const active = id === state.playlistId;
-      const count = playlistCount(playlist);
-      return `
-        <button class="pl${active ? ' is-active' : ''}" data-id="${esc(id)}" role="listitem" title="${esc(
-          playlist.playlistName || id,
-        )}">
-          <span class="cover sm" style="${coverStyle(playlist.playlistImageUrl)}"></span>
-          <span class="pl-main">
-            <span class="pl-name">${esc(playlist.playlistName || id || 'Без названия')}</span>
-            <span class="pl-sub">${count ? `${count} ${plural(count, 'трек', 'трека', 'треков')}` : 'плейлист'}</span>
-          </span>
-        </button>`;
-    })
-    .join('');
-}
+  function formatDuration(sec) {
+    if (!Number.isFinite(sec) || sec < 0) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
 
-async function loadPlaylists() {
-  try {
-    const data = await api('/api/playlists');
-    state.playlists = Array.isArray(data.playlists) ? data.playlists : [];
-    renderPlaylists();
+  // --- View Transitions ---
+  function showAuthView() {
+    state.session = null;
+    els.viewAuth.hidden = false;
+    els.viewApp.hidden = true;
+    els.userBar.hidden = true;
+    els.unauthStatus.hidden = false;
+    els.playerBar.hidden = true;
+    if (state.audio) {
+      state.audio.pause();
+      state.isPlaying = false;
+      updatePlayButtonUI();
+    }
+  }
 
-    if (!state.playlists.length) {
-      showEmptyLibrary(
-        'Пока пусто',
-        'В аккаунте нет плейлистов. Добавь что-нибудь в приложении Lane — и обнови страницу.',
-      );
+  function showAppView(session) {
+    state.session = session;
+    els.viewAuth.hidden = true;
+    els.viewApp.hidden = false;
+    els.userBar.hidden = false;
+    els.unauthStatus.hidden = true;
+
+    // Render User Details
+    const user = session.user || {};
+    const name = user.displayedName || user.name || user.username || 'Пользователь';
+    const initial = name.trim().charAt(0).toUpperCase() || 'L';
+
+    els.userName.textContent = name;
+    els.userAvatar.textContent = initial;
+    els.userHandle.textContent = user.username ? `@${user.username}` : (session.ldi ? `ID: ${session.ldi.slice(0, 8)}` : '');
+
+    els.dashName.textContent = name;
+    els.dashAvatar.textContent = initial;
+    els.dashLdi.textContent = session.ldi || '—';
+
+    // Stop auth polling if active
+    stopAuthPolling();
+
+    // Fetch library
+    loadPlaylists();
+  }
+
+  // --- Auth Flow ---
+  async function startAuth() {
+    els.btnStartAuth.disabled = true;
+    els.btnStartAuth.innerHTML = '<span class="dot-pulse"></span><span>Генерация сессии...</span>';
+
+    const res = await api('/api/auth/start', { method: 'POST' });
+    els.btnStartAuth.disabled = false;
+    els.btnStartAuth.innerHTML = '<svg class="icon icon-tg"><use href="#i-tg"/></svg><span>Подключиться через Telegram</span>';
+
+    if (!res.ok || !res.data || !res.data.url) {
+      showToast(res.data?.error || 'Ошибка инициализации сессии', 'error');
       return;
     }
 
-    const wanted =
-      state.playlists.find((p) => p.playlistId === parseHash()) ||
-      state.playlists.find((p) => p.playlistId === 'lane_likes') ||
-      state.playlists[0];
+    const { id, url, expiresIn } = res.data;
+    state.auth.id = id;
+    state.auth.url = url;
+    state.auth.startedAt = Date.now();
+    state.auth.expiresAt = Date.now() + (expiresIn || 1200) * 1000;
+    state.auth.attempts = 0;
 
-    await openPlaylist(wanted.playlistId, { push: false });
-  } catch (error) {
-    if (error.code === 'SESSION_EXPIRED') return;
-    showEmptyLibrary('Не удалось загрузить плейлисты', error.message);
-  }
-}
+    // Switch card UI
+    els.authIdle.hidden = true;
+    els.authActive.hidden = false;
 
-function parseHash() {
-  const match = /^#\/p\/(.+)$/.exec(location.hash || '');
-  if (!match) return null;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return null;
-  }
-}
+    // Render QR Code
+    renderQrCode(url);
 
-function setHash(id) {
-  const hash = `#/p/${encodeURIComponent(id)}`;
-  if (location.hash !== hash) history.pushState(null, '', hash);
-}
+    // Direct link & input
+    els.btnTgLink.href = url;
+    els.authUrlInput.value = url;
 
-function renderLibrarySkeleton(id) {
-  const cached = state.playlists.find((p) => p.playlistId === id);
-  state.playlist = cached || { playlistId: id, playlistName: id };
-  $('pl-cover').style.backgroundImage = 'linear-gradient(135deg,#2c1c58,#0d1428)';
-  $('pl-name').textContent = (cached && cached.playlistName) || 'Загрузка…';
-  $('pl-desc').textContent = '';
-  $('pl-count').textContent = '…';
-  $('pl-source').textContent = 'Lane';
-  $('pl-quality').textContent = qualityLabel();
-  $('library-empty').hidden = true;
-  $('lib-more').hidden = true;
-
-  els.trackList.innerHTML = Array.from({ length: 8 })
-    .map(
-      () => `
-      <div class="track track-skeleton" aria-hidden="true">
-        <div class="t-index"><span class="skel skel-num"></span></div>
-        <span class="cover sm skel"></span>
-        <div class="t-main"><span class="skel skel-line"></span><span class="skel skel-line short"></span></div>
-        <span></span>
-        <div class="t-dur"><span class="skel skel-num"></span></div>
-      </div>`,
-    )
-    .join('');
-}
-
-async function openPlaylist(id, options = {}) {
-  if (!id) return;
-  if (options.push) setHash(id);
-  if (state.playlistId === id && state.tracks.length && !options.force) {
-    return;
+    // Begin Polling Loop
+    startAuthPolling();
   }
 
-  state.playlistId = id;
-  state.playlist = null;
-  state.tracks = [];
-  state.page = 1;
-  state.totalPages = 1;
-  state.totalItems = 0;
-  state.queue = [];
-  renderPlaylists();
-  renderLibrarySkeleton(id);
-
-  try {
-    const data = await api(
-      `/api/playlist?id=${encodeURIComponent(id)}&page=1&pageSize=50`,
-    );
-    if (state.playlistId !== id) return;
-
-    state.playlist = data.playlist || state.playlists.find((p) => p.playlistId === id) || { playlistId: id };
-    const page = data.tracks || {};
-    state.tracks = Array.isArray(page.items) ? page.items : [];
-    state.page = Number(page.page) || 1;
-    state.totalPages = Number(page.totalPages) || 1;
-    state.totalItems = Number(page.totalItems) || state.tracks.length;
-
-    renderLibrary();
-  } catch (error) {
-    if (state.playlistId !== id) return;
-    if (error.code === 'SESSION_EXPIRED') return;
-    showEmptyLibrary('Не удалось открыть плейлист', error.message);
-  }
-}
-
-function qualityLabel() {
-  return `${state.quality} · ${{ BASIC: '128', HIGH: '192', ULTRA: '320' }[state.quality] || '192'}`;
-}
-
-function renderLibrary() {
-  const playlist = state.playlist || {};
-  const cover = playlist.playlistImageUrl;
-  $('pl-cover').style.cssText = coverStyle(cover);
-
-  $('pl-name').textContent = playlist.playlistName || playlist.playlistId || 'Плейлист';
-  $('pl-desc').textContent = playlist.playlistDescription || '';
-  $('pl-desc').hidden = !playlist.playlistDescription;
-
-  const count = state.totalItems || state.tracks.length;
-  $('pl-count').textContent = `${count} ${plural(count, 'трек', 'трека', 'треков')}`;
-  $('pl-source').textContent = playlist.platform ? `Lane · ${playlist.platform}` : 'Lane';
-  $('pl-quality').textContent = qualityLabel();
-
-  $('library-empty').hidden = true;
-  renderTracks();
-  renderMore();
-}
-
-function renderTracks() {
-  if (!state.tracks.length) {
-    showEmptyLibrary('Здесь пока нет треков', 'Плейлист пуст — добавь музыку в приложении Lane.');
-    return;
-  }
-
-  els.trackList.innerHTML = state.tracks
-    .map((track, index) => {
-      const active = state.current && track.songId === state.current.songId;
-      const title = track.title || 'Без названия';
-      const artist = track.artistsDisplayedName || 'Неизвестный исполнитель';
-      const indexCell = active
-        ? '<span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>'
-        : `<span class="t-num">${index + 1}</span><svg class="i t-play" aria-hidden="true"><use href="#i-play"/></svg>`;
-
-      return `
-        <div class="track${active ? ' is-active' : ''}" data-i="${index}" role="button" tabindex="0"
-             aria-label="${esc(title)} — ${esc(artist)}">
-          <div class="t-index">${indexCell}</div>
-          <span class="cover sm" style="${coverStyle(track.coverUrl)}"></span>
-          <div class="t-main">
-            <div class="t-title">${esc(title)}</div>
-            <div class="t-artist">${esc(artist)}</div>
-          </div>
-          <div class="t-badges">${track.explicit ? '<span class="badge-explicit">E</span>' : ''}</div>
-          <div class="t-dur">${esc(track.duration || '—')}</div>
-        </div>`;
-    })
-    .join('');
-}
-
-function renderMore() {
-  const more = $('lib-more');
-  if (state.page < state.totalPages) {
-    more.hidden = false;
-    $('lib-page').textContent = `стр. ${state.page} из ${state.totalPages}`;
-    $('load-more').disabled = false;
-    $('load-more').textContent = 'Показать ещё';
-  } else {
-    more.hidden = true;
-  }
-}
-
-async function loadMore() {
-  if (!state.playlistId || state.page >= state.totalPages) return;
-  const button = $('load-more');
-  button.disabled = true;
-  button.textContent = 'Загружаем…';
-
-  const id = state.playlistId;
-  try {
-    const data = await api(
-      `/api/playlist?id=${encodeURIComponent(id)}&page=${state.page + 1}&pageSize=50`,
-    );
-    if (state.playlistId !== id) return;
-    const page = data.tracks || {};
-    const items = Array.isArray(page.items) ? page.items : [];
-    state.tracks = [...state.tracks, ...items];
-    state.page = Number(page.page) || state.page + 1;
-    state.totalPages = Number(page.totalPages) || state.totalPages;
-    state.totalItems = Number(page.totalItems) || state.totalItems;
-    renderTracks();
-    renderMore();
-    renderLibraryMeta();
-  } catch (error) {
-    toast(error.message, 'error');
-    button.disabled = false;
-    button.textContent = 'Показать ещё';
-  }
-}
-
-function renderLibraryMeta() {
-  const count = state.totalItems || state.tracks.length;
-  $('pl-count').textContent = `${count} ${plural(count, 'трек', 'трека', 'треков')}`;
-}
-
-function showEmptyLibrary(title, text) {
-  $('pl-name').textContent = (state.playlist && state.playlist.playlistName) || 'Плейлист';
-  $('library-empty').hidden = false;
-  $('library-empty').querySelector('h3').textContent = title || 'Пусто';
-  $('library-empty').querySelector('p').textContent = text || '';
-  els.trackList.innerHTML = '';
-  $('lib-more').hidden = true;
-}
-
-/* ------------------------------- плеер --------------------------------- */
-
-function setBuffer(loading) {
-  const button = $('play');
-  button.classList.toggle('is-loading', Boolean(loading));
-}
-
-function updatePlayIcon() {
-  const icon = $('play').querySelector('use');
-  icon.setAttribute('href', els.audio.paused ? '#i-play' : '#i-pause');
-  $('play').setAttribute('aria-label', els.audio.paused ? 'Играть' : 'Пауза');
-  els.player.classList.toggle('is-playing', !els.audio.paused);
-}
-
-function updateSeekUI() {
-  const duration = Number.isFinite(els.audio.duration) ? els.audio.duration : 0;
-  const current = els.audio.currentTime || 0;
-  $('t-cur').textContent = fmtTime(current);
-  $('t-dur').textContent = duration ? fmtTime(duration) : (state.current && state.current.duration) || '0:00';
-  if (!seeking) {
-    const percent = duration ? (current / duration) * 100 : 0;
-    els.seek.value = String(Math.round(percent * 10));
-    setFill(els.seek, percent);
-  }
-}
-
-function renderNow() {
-  const track = state.current;
-  if (!track) {
-    $('now-title').textContent = 'Ничего не играет';
-    $('now-artist').textContent = 'Выбери трек';
-    $('now-cover').style.cssText = coverStyle('');
-    return;
-  }
-
-  $('now-title').textContent = track.title || 'Без названия';
-  $('now-artist').textContent = track.artistsDisplayedName || 'Неизвестный исполнитель';
-  $('now-cover').style.cssText = coverStyle(track.coverUrl);
-  els.player.hidden = false;
-  document.title = `${track.title || 'Lane Web'} — Lane Web`;
-  updateSeekUI();
-}
-
-function markActiveTrack() {
-  const rows = els.trackList.querySelectorAll('.track');
-  rows.forEach((row) => {
-    const index = Number(row.dataset.i);
-    const track = state.tracks[index];
-    const active = Boolean(track && state.current && track.songId === state.current.songId);
-    row.classList.toggle('is-active', active);
-    if (active) {
-      row.querySelector('.t-index').innerHTML =
-        '<span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>';
-    } else {
-      const num = row.querySelector('.t-index');
-      if (num && !num.querySelector('.t-num')) {
-        num.innerHTML = `<span class="t-num">${index + 1}</span><svg class="i t-play" aria-hidden="true"><use href="#i-play"/></svg>`;
-      }
-    }
-  });
-}
-
-async function playTrack(track, list, refId) {
-  if (!track) return;
-  if (!track.songId) {
-    toast('У трека нет songId — нечего запрашивать', 'error');
-    return;
-  }
-  state.current = track;
-  state.queue = Array.isArray(list) && list.length ? list.slice() : [track];
-  state.refId = refId || state.playlistId;
-  retriedStream = 0;
-  renderNow();
-  markActiveTrack();
-  setBuffer(true);
-  await fetchStream({ autoplay: true });
-}
-
-function playIndex(index) {
-  const track = state.tracks[index];
-  if (!track) return;
-  playTrack(track, state.tracks, state.playlistId);
-}
-
-async function fetchStream(options = {}) {
-  const track = state.current;
-  if (!track) return;
-  const run = ++streamSeq;
-  setBuffer(true);
-
-  const refId = state.refId || state.playlistId || 'lane_likes';
-  const url =
-    `/api/stream?trackId=${encodeURIComponent(track.songId)}` +
-    `&refId=${encodeURIComponent(refId)}&quality=${state.quality}`;
-
-  try {
-    const data = await api(url);
-    if (run !== streamSeq) return;
-
-    state.stream = {
-      url: data.url,
-      quality: data.quality,
-      expiresAt: Date.now() + Math.max(30000, (data.ttl || 90000)) - 5000,
-    };
-
-    const resumeAt = Number(options.resumeAt) || 0;
-    els.audio.src = data.url;
-    if (resumeAt > 0) {
-      els.audio.addEventListener(
-        'loadedmetadata',
-        () => {
-          try {
-            els.audio.currentTime = resumeAt;
-          } catch {}
-        },
-        { once: true },
-      );
+  function renderQrCode(text) {
+    if (typeof window.qrcode !== 'function') {
+      console.warn('qrcode generator not ready');
+      return;
     }
 
-    if (options.autoplay) {
-      try {
-        await els.audio.play();
-      } catch (error) {
-        if (error && error.name === 'NotAllowedError') {
-          toast('Нажми play ещё раз — браузер требует жест пользователя');
-        } else if (error) {
-          toast(`Не удалось воспроизвести: ${error.message}`, 'error');
+    try {
+      const qr = window.qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+
+      const canvas = els.qrCanvas;
+      const ctx = canvas.getContext('2d');
+      const count = qr.getModuleCount();
+      const size = canvas.width;
+      const pad = 12;
+      const cellSize = (size - pad * 2) / count;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+
+      ctx.fillStyle = '#09090b';
+      for (let r = 0; r < count; r++) {
+        for (let c = 0; c < count; c++) {
+          if (qr.isDark(r, c)) {
+            // Draw clean rounded modules
+            const x = pad + c * cellSize;
+            const y = pad + r * cellSize;
+            ctx.fillRect(x, y, cellSize + 0.5, cellSize + 0.5);
+          }
         }
       }
+    } catch (err) {
+      console.error('QR render error:', err);
     }
-    updateQualityLabel();
-  } catch (error) {
-    if (run !== streamSeq) return;
-    setBuffer(false);
-    if (error.code === 'SESSION_EXPIRED') return;
-    toast(`Не удалось получить поток: ${error.message}`, 'error');
-  } finally {
-    if (run === streamSeq) setBuffer(false);
-  }
-}
-
-function updateQualityLabel() {
-  $('pl-quality').textContent = qualityLabel();
-}
-
-async function togglePlay() {
-  if (!state.current) {
-    if (state.tracks.length) playIndex(0);
-    return;
   }
 
-  if (els.audio.paused) {
-    if (!state.stream || Date.now() > state.stream.expiresAt) {
-      await fetchStream({ autoplay: true, resumeAt: els.audio.currentTime });
+  function startAuthPolling() {
+    stopAuthPolling();
+
+    // Countdown / status update tick
+    state.auth.countdownTimer = setInterval(updatePollTimer, 1000);
+    updatePollTimer();
+
+    // Immediate first poll, then interval
+    pollAuth();
+    state.auth.pollTimer = setInterval(pollAuth, 2500);
+  }
+
+  function stopAuthPolling() {
+    if (state.auth.pollTimer) {
+      clearInterval(state.auth.pollTimer);
+      state.auth.pollTimer = null;
+    }
+    if (state.auth.countdownTimer) {
+      clearInterval(state.auth.countdownTimer);
+      state.auth.countdownTimer = null;
+    }
+  }
+
+  function updatePollTimer() {
+    const remainMs = Math.max(0, state.auth.expiresAt - Date.now());
+    const sec = Math.floor(remainMs / 1000);
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    const timeStr = `${m}:${s < 10 ? '0' : ''}${s}`;
+
+    els.pollTimerText.textContent = `Опрос каждые 2.5 с • Доступно: ${timeStr} • Попытка ${state.auth.attempts}`;
+
+    const totalDur = (state.auth.expiresAt - state.auth.startedAt) || 1200000;
+    const progress = Math.min(100, Math.max(0, ((Date.now() - state.auth.startedAt) / totalDur) * 100));
+    els.pollProgress.style.width = `${progress}%`;
+
+    if (remainMs <= 0) {
+      stopAuthPolling();
+      els.pollMessage.textContent = 'Время сессии истекло. Сгенерируйте новый ключ.';
+      els.pollMessage.style.color = '#fb7185';
+    }
+  }
+
+  async function pollAuth() {
+    state.auth.attempts++;
+
+    const res = await api('/api/auth/poll');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        stopAuthPolling();
+        showToast('Сессия недействительна. Начните сначала.', 'error');
+      }
       return;
     }
-    try {
-      await els.audio.play();
-    } catch (error) {
-      toast(`Не удалось воспроизвести: ${error.message}`, 'error');
+
+    const data = res.data || {};
+    if (data.status === 'ok') {
+      stopAuthPolling();
+      showToast('Авторизация подтверждена!', 'success');
+      showAppView({ user: data.user, ldi: data.ldi });
+    } else if (data.status === 'expired') {
+      stopAuthPolling();
+      els.pollMessage.textContent = 'Сессия устарела. Нажмите обновить.';
+      els.pollMessage.style.color = '#fb7185';
     }
-  } else {
-    els.audio.pause();
   }
-}
 
-function step(delta) {
-  if (!state.queue.length) return;
-  const index = state.queue.findIndex((t) => state.current && t.songId === state.current.songId);
-  let next = index === -1 ? 0 : index + delta;
-  if (next < 0) next = state.queue.length - 1;
-  if (next >= state.queue.length) next = 0;
-  playTrack(state.queue[next], state.queue, state.refId);
-}
-
-function shufflePlay() {
-  if (!state.tracks.length) return;
-  const list = state.tracks.slice();
-  for (let i = list.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [list[i], list[j]] = [list[j], list[i]];
+  async function logout() {
+    await api('/api/auth/logout', { method: 'POST' });
+    state.configData = null;
+    showToast('Вы вышли из системы');
+    showAuthView();
   }
-  playTrack(list[0], list, state.playlistId);
-  toast('Перемешали плейлист');
-}
 
-function playAll() {
-  if (!state.tracks.length) return;
-  playTrack(state.tracks[0], state.tracks, state.playlistId);
-}
+  // --- Library & Playlists ---
+  async function loadPlaylists() {
+    // 1. Load favorite tracks count/tracks
+    await loadPlaylistTracks('lane_likes');
 
-async function changeQuality(quality) {
-  if (!['BASIC', 'HIGH', 'ULTRA'].includes(quality)) return;
-  const wasPlaying = Boolean(state.current) && !els.audio.paused;
-  const position = els.audio.currentTime || 0;
-  state.quality = quality;
-  localStorage.setItem('lane.quality', quality);
-  updateQualityLabel();
-  if (state.current && state.stream) {
-    await fetchStream({ autoplay: wasPlaying, resumeAt: position });
+    // 2. Fetch user playlists
+    const res = await api('/api/playlists');
+    if (res.ok && Array.isArray(res.data?.playlists)) {
+      state.playlists = res.data.playlists;
+      renderPlaylistsNav();
+    }
   }
-}
 
-function setVolume(value) {
-  const volume = Math.max(0, Math.min(1, value));
-  state.volume = volume;
-  els.audio.volume = volume;
-  els.volume.value = String(Math.round(volume * 100));
-  setFill(els.volume, volume * 100);
-  localStorage.setItem('lane.volume', String(volume));
-}
+  function renderPlaylistsNav() {
+    const nav = els.shelfNav;
+    // Keep likes button, remove dynamic user playlist buttons
+    const userButtons = nav.querySelectorAll('.dynamic-pl-pill');
+    userButtons.forEach((b) => b.remove());
 
-/* ------------------------------- модалка -------------------------------- */
+    state.playlists.forEach((pl) => {
+      const id = pl.playlistId;
+      if (id === 'lane_likes') return; // Handled by pill-likes
 
-function openAuth() {
-  els.modal.hidden = false;
-  document.body.classList.add('modal-open');
-  startAuth();
-}
+      const btn = document.createElement('button');
+      btn.className = `shelf-pill dynamic-pl-pill ${state.activePlaylistId === id ? 'active' : ''}`;
+      btn.dataset.playlist = id;
+      const count = Array.isArray(pl.playlistTracksIds) ? pl.playlistTracksIds.length : (pl.tracksCount || '');
+      btn.innerHTML = `
+        <span class="pill-name">${escapeHtml(pl.playlistName || 'Плейлист')}</span>
+        ${count !== '' ? `<span class="pill-count">${count}</span>` : ''}
+      `;
+      btn.addEventListener('click', () => {
+        selectPlaylist(id, pl.playlistName);
+      });
+      nav.appendChild(btn);
+    });
+  }
 
-function closeAuth() {
-  els.modal.hidden = true;
-  document.body.classList.remove('modal-open');
-  stopPolling();
-  authRun += 1;
-}
+  function selectPlaylist(id, title = null) {
+    if (state.activePlaylistId === id) return;
+    state.activePlaylistId = id;
 
-function stopPolling() {
-  if (pollTimer) clearTimeout(pollTimer);
-  pollTimer = null;
-}
+    // Update active pill state
+    const allPills = els.shelfNav.querySelectorAll('.shelf-pill');
+    allPills.forEach((p) => {
+      p.classList.toggle('active', p.dataset.playlist === id);
+    });
 
-function authShell(inner) {
-  els.authBody.innerHTML = inner;
-}
+    els.activePlTitle.textContent = title || (id === 'lane_likes' ? 'Мне нравится' : 'Плейлист');
+    loadPlaylistTracks(id);
+  }
 
-function renderAuthLoading() {
-  authShell(`
-    <div class="auth-icon"><svg class="i"><use href="#i-telegram"/></svg></div>
-    <h3 class="auth-title">Вход через Telegram</h3>
-    <p class="auth-text">Готовим ключ сессии и ссылку на официального бота…</p>
-    <div class="auth-wait"><span class="spinner"></span><span class="auth-status">Пару секунд</span></div>
-  `);
-}
+  async function loadPlaylistTracks(id, page = 1) {
+    if (page === 1) {
+      els.tracksList.innerHTML = `
+        <div class="track-row skeleton"></div>
+        <div class="track-row skeleton"></div>
+        <div class="track-row skeleton"></div>
+        <div class="track-row skeleton"></div>
+      `;
+      els.tracksEmpty.hidden = true;
+      els.tracksPagination.hidden = true;
+    }
 
-function renderAuthWaiting() {
-  const { url, id } = state.auth;
-  authShell(`
-    <div class="auth-icon"><svg class="i"><use href="#i-telegram"/></svg></div>
-    <h3 class="auth-title">Подтверди вход в Telegram</h3>
-    <p class="auth-text">
-      Открой <b>@lane_music_bot</b> и нажми <b>Start</b>. Страница сама заметит
-      подтверждение — обновлять ничего не нужно.
-    </p>
-    <div class="auth-wait">
-      <span class="spinner"></span>
-      <span class="auth-status" id="auth-status">Ждём подтверждения…</span>
-    </div>
-    <div class="auth-progress"><span id="auth-bar" style="width:0%"></span></div>
-    <div class="auth-actions">
-      <a class="btn btn-primary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
-        <svg class="i"><use href="#i-telegram"/></svg>
-        Открыть @lane_music_bot
-      </a>
-      <button class="btn btn-ghost" id="auth-copy">
-        <svg class="i"><use href="#i-link"/></svg>
-        Скопировать ссылку
-      </button>
-    </div>
-    <div class="auth-id">ключ сессии: ${esc(id)}</div>
-    <p class="auth-note"><svg class="i"><use href="#i-shield"/></svg> ключ одноразовый и живёт 20 минут</p>
-  `);
+    const res = await api(`/api/playlist?id=${encodeURIComponent(id)}&page=${page}&pageSize=50`);
+    if (!res.ok) {
+      if (page === 1) {
+        els.tracksList.innerHTML = '';
+        els.tracksEmpty.hidden = false;
+        els.activePlDetails.textContent = 'Ошибка загрузки плейлиста';
+      }
+      return;
+    }
 
-  const copy = $('auth-copy');
-  if (copy) {
-    copy.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(state.auth.url);
-        copy.querySelector('span')?.remove();
-        copy.textContent = 'Ссылка скопирована';
-        setTimeout(() => {
-          copy.innerHTML = '<svg class="i"><use href="#i-link"/></svg> Скопировать ссылку';
-        }, 1800);
-      } catch {
-        toast('Не удалось скопировать — выдели ссылку вручную', 'error');
+    const payload = res.data || {};
+    const trackItems = Array.isArray(payload.tracks)
+      ? payload.tracks
+      : (payload.tracks?.items || []);
+
+    if (page === 1) {
+      state.tracks = trackItems;
+    } else {
+      state.tracks = state.tracks.concat(trackItems);
+    }
+
+    state.page = page;
+    state.hasMore = trackItems.length >= 50;
+    els.tracksPagination.hidden = !state.hasMore;
+
+    if (id === 'lane_likes') {
+      const total = payload.tracks?.total || state.tracks.length;
+      document.getElementById('count-likes').textContent = total;
+    }
+
+    els.activePlDetails.textContent = `${state.tracks.length} треков · Lane Audio Stream`;
+    applyTrackFilter();
+  }
+
+  function applyTrackFilter() {
+    const q = state.searchQuery.trim().toLowerCase();
+    if (!q) {
+      state.filteredTracks = state.tracks;
+    } else {
+      state.filteredTracks = state.tracks.filter((t) => {
+        const title = (t.title || '').toLowerCase();
+        const artist = (t.artistsDisplayedName || '').toLowerCase();
+        return title.includes(q) || artist.includes(q);
+      });
+    }
+
+    renderTracksList();
+  }
+
+  function renderTracksList() {
+    const container = els.tracksList;
+    container.innerHTML = '';
+
+    if (!state.filteredTracks.length) {
+      els.tracksEmpty.hidden = false;
+      return;
+    }
+    els.tracksEmpty.hidden = true;
+
+    state.filteredTracks.forEach((track, idx) => {
+      const row = document.createElement('div');
+      const isCurrent = state.currentTrack && state.currentTrack.songId === track.songId;
+      row.className = `track-row ${isCurrent ? 'is-active' : ''}`;
+      row.dataset.songId = track.songId;
+
+      const durStr = typeof track.duration === 'string'
+        ? track.duration
+        : (typeof track.duration === 'number' ? formatDuration(track.duration) : '—');
+
+      const coverImg = track.coverUrl
+        ? `style="background-image: url('${escapeHtml(track.coverUrl)}')"`
+        : '';
+
+      const albumName = track.spData?.album || '';
+
+      row.innerHTML = `
+        <div class="track-num-col">
+          <span class="track-index">${idx + 1}</span>
+          <span class="track-play-hover">
+            <svg class="icon sm"><use href="#${isCurrent && state.isPlaying ? 'i-pause' : 'i-play'}"/></svg>
+          </span>
+        </div>
+        <div class="track-title-col">
+          <div class="track-cover-thumb" ${coverImg}></div>
+          <div class="track-names">
+            <div class="track-title">${escapeHtml(track.title || 'Без названия')}</div>
+            <div class="track-artist">${escapeHtml(track.artistsDisplayedName || 'Неизвестный исполнитель')}</div>
+          </div>
+        </div>
+        <div class="track-album">${escapeHtml(albumName)}</div>
+        <div class="track-dur">${escapeHtml(durStr)}</div>
+      `;
+
+      row.addEventListener('click', () => {
+        playTrack(track, idx);
+      });
+
+      container.appendChild(row);
+    });
+  }
+
+  // --- Audio Player Engine ---
+  async function playTrack(track, index = -1) {
+    if (state.currentTrack && state.currentTrack.songId === track.songId) {
+      // Toggle pause / play
+      if (state.isPlaying) {
+        state.audio.pause();
+      } else {
+        state.audio.play().catch(console.error);
+      }
+      return;
+    }
+
+    state.currentTrack = track;
+    state.currentTrackIndex = index;
+
+    // Update bottom bar info
+    els.playerBar.hidden = false;
+    els.playerTitle.textContent = track.title || 'Без названия';
+    els.playerArtist.textContent = track.artistsDisplayedName || 'Неизвестный исполнитель';
+    if (track.coverUrl) {
+      els.playerCover.style.backgroundImage = `url('${track.coverUrl}')`;
+    } else {
+      els.playerCover.style.backgroundImage = 'none';
+    }
+
+    highlightActiveTrackRow();
+
+    // Fetch stream from signed proxy
+    const res = await api(`/api/stream?trackId=${encodeURIComponent(track.songId)}&refId=${encodeURIComponent(state.activePlaylistId)}&quality=${state.quality}`);
+    if (!res.ok || !res.data?.url) {
+      showToast(res.data?.error || 'Не удалось получить аудиопоток', 'error');
+      return;
+    }
+
+    state.audio.src = res.data.url;
+    state.audio.volume = state.isMuted ? 0 : state.volume;
+    state.audio.play().catch((err) => {
+      console.warn('Playback error:', err);
+    });
+  }
+
+  function playNextTrack() {
+    if (!state.filteredTracks.length) return;
+    let nextIdx = state.currentTrackIndex + 1;
+    if (nextIdx >= state.filteredTracks.length) nextIdx = 0;
+    playTrack(state.filteredTracks[nextIdx], nextIdx);
+  }
+
+  function playPrevTrack() {
+    if (!state.filteredTracks.length) return;
+    let prevIdx = state.currentTrackIndex - 1;
+    if (prevIdx < 0) prevIdx = state.filteredTracks.length - 1;
+    playTrack(state.filteredTracks[prevIdx], prevIdx);
+  }
+
+  function highlightActiveTrackRow() {
+    const rows = els.tracksList.querySelectorAll('.track-row');
+    rows.forEach((r) => {
+      const isActive = state.currentTrack && r.dataset.songId === state.currentTrack.songId;
+      r.classList.toggle('is-active', isActive);
+      const iconUse = r.querySelector('.track-play-hover use');
+      if (iconUse) {
+        iconUse.setAttribute('href', isActive && state.isPlaying ? '#i-pause' : '#i-play');
       }
     });
   }
 
-  updateAuthProgress();
-}
-
-function updateAuthProgress() {
-  const status = $('auth-status');
-  const bar = $('auth-bar');
-  if (!status) return;
-  const elapsed = Math.floor((Date.now() - (state.auth.startedAt || Date.now())) / 1000);
-  status.innerHTML = `Ждём подтверждения… <b>${elapsed} с</b>`;
-  if (bar) bar.style.width = `${Math.min(100, (elapsed / 120) * 100)}%`;
-}
-
-function renderAuthSuccess() {
-  authShell(`
-    <div class="auth-icon is-ok"><svg class="i"><use href="#i-check"/></svg></div>
-    <h3 class="auth-title">Готово</h3>
-    <p class="auth-text">Telegram подтвердил аккаунт. Подключаемся к Lane и подтягиваем плейлисты…</p>
-    <ul class="auth-success-list">
-      <li><svg class="i"><use href="#i-check"/></svg> сессия сохранена в защищённой cookie</li>
-      <li><svg class="i"><use href="#i-check"/></svg> токен не доступен JavaScript страницы</li>
-    </ul>
-  `);
-}
-
-function renderAuthTimeout() {
-  const { url } = state.auth;
-  authShell(`
-    <div class="auth-icon is-error"><svg class="i"><use href="#i-link"/></svg></div>
-    <h3 class="auth-title">Пока не подтверждено</h3>
-    <p class="auth-text">
-      Бот не получил команду <b>Start</b>. Открой ссылку ещё раз и нажми Start —
-      или продолжи ждать, ключ сессии ещё действует.
-    </p>
-    <div class="auth-actions">
-      <a class="btn btn-primary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
-        <svg class="i"><use href="#i-telegram"/></svg>
-        Открыть @lane_music_bot
-      </a>
-      <button class="btn btn-ghost" id="auth-resume">Продолжить ожидание</button>
-    </div>
-    <div class="auth-id">ключ сессии: ${esc(state.auth.id)}</div>
-  `);
-
-  $('auth-resume')?.addEventListener('click', () => {
-    state.auth.attempts = 0;
-    state.auth.startedAt = Date.now();
-    renderAuthWaiting();
-    poll(++authRun);
-  });
-}
-
-function renderAuthError(message, retry) {
-  authShell(`
-    <div class="auth-icon is-error"><svg class="i"><use href="#i-close"/></svg></div>
-    <h3 class="auth-title">Не получилось</h3>
-    <p class="auth-text" id="auth-error-text">${esc(message || 'Неизвестная ошибка')}</p>
-    <div class="auth-actions">
-      <button class="btn btn-primary" id="auth-retry">Попробовать снова</button>
-    </div>
-    <p class="auth-note"><svg class="i"><use href="#i-shield"/></svg> аккаунт и пароль не запрашиваются</p>
-  `);
-  $('auth-retry')?.addEventListener('click', retry || startAuth);
-}
-
-async function startAuth() {
-  const run = ++authRun;
-  stopPolling();
-  renderAuthLoading();
-
-  try {
-    const data = await api('/api/auth/start', { method: 'POST' });
-    if (run !== authRun) return;
-
-    state.auth = {
-      url: data.url,
-      id: data.id,
-      attempts: 0,
-      startedAt: Date.now(),
-      run,
-    };
-    renderAuthWaiting();
-    poll(run);
-  } catch (error) {
-    if (run !== authRun) return;
-    renderAuthError(error.message, startAuth);
+  function updatePlayButtonUI() {
+    els.ctrlPlayIcon.setAttribute('href', state.isPlaying ? '#i-pause' : '#i-play');
+    document.body.classList.toggle('is-audio-playing', state.isPlaying);
+    document.querySelector('.header').classList.toggle('is-playing', state.isPlaying);
+    highlightActiveTrackRow();
   }
-}
 
-async function poll(run) {
-  if (run !== authRun) return;
-  if (els.modal.hidden) return;
-
-  state.auth.attempts += 1;
-
-  try {
-    const data = await api('/api/auth/poll');
-    if (run !== authRun) return;
-
-    if (data.status === 'ok') {
-      stopPolling();
-      renderAuthSuccess();
-      setTimeout(() => finishAuth(), 900);
-      return;
-    }
-
-    if (data.status === 'expired') {
-      stopPolling();
-      renderAuthError('Ключ ожидания истёк. Начни заново — это займёт пару секунд.', startAuth);
-      return;
-    }
-
-    updateAuthProgress();
-
-    if (state.auth.attempts >= 40) {
-      renderAuthTimeout();
-      return;
-    }
-
-    pollTimer = setTimeout(() => poll(run), 3000);
-  } catch (error) {
-    if (run !== authRun) return;
-    if (state.auth.attempts >= 40) {
-      renderAuthTimeout();
-      return;
-    }
-    updateAuthProgress();
-    pollTimer = setTimeout(() => poll(run), 4000);
-  }
-}
-
-async function finishAuth() {
-  closeAuth();
-
-  try {
-    const res = await fetch('/api/me', { headers: { accept: 'application/json' }, credentials: 'same-origin' });
-    if (!res.ok) throw new Error('профиль недоступен');
-    const me = await res.json();
-    enterApp(me);
-    toast('Вошли — можно слушать');
-  } catch (error) {
-    toast(`Не удалось открыть сессию: ${error.message}`, 'error');
-    showLanding();
-  }
-}
-
-/* ------------------------------ события -------------------------------- */
-
-function wireStatic() {
-  $('hero-login').addEventListener('click', openAuth);
-  els.topLogin.addEventListener('click', openAuth);
-  $('auth-close').addEventListener('click', closeAuth);
-  els.modal.addEventListener('click', (event) => {
-    if (event.target.dataset.close === '1') closeAuth();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !els.modal.hidden) closeAuth();
+  // Audio Event Listeners
+  els.audio.addEventListener('play', () => {
+    state.isPlaying = true;
+    updatePlayButtonUI();
   });
 
-  els.playlistList.addEventListener('click', (event) => {
-    const button = event.target.closest('.pl');
-    if (!button) return;
-    openPlaylist(button.dataset.id, { push: true });
+  els.audio.addEventListener('pause', () => {
+    state.isPlaying = false;
+    updatePlayButtonUI();
   });
-
-  els.trackList.addEventListener('click', (event) => {
-    const row = event.target.closest('.track');
-    if (!row || row.classList.contains('track-skeleton')) return;
-    playIndex(Number(row.dataset.i));
-  });
-
-  els.trackList.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    const row = event.target.closest('.track');
-    if (!row || row.classList.contains('track-skeleton')) return;
-    event.preventDefault();
-    playIndex(Number(row.dataset.i));
-  });
-
-  $('play-all').addEventListener('click', playAll);
-  $('shuffle').addEventListener('click', shufflePlay);
-  $('load-more').addEventListener('click', loadMore);
-
-  $('play').addEventListener('click', togglePlay);
-  $('prev').addEventListener('click', () => step(-1));
-  $('next').addEventListener('click', () => step(1));
-
-  $('top-logout').addEventListener('click', logout);
-  $('side-logout').addEventListener('click', logout);
-
-  els.quality.addEventListener('change', () => changeQuality(els.quality.value));
-
-  els.volume.addEventListener('input', () => setVolume(Number(els.volume.value) / 100));
-
-  els.seek.addEventListener('input', () => {
-    seeking = true;
-    const percent = Number(els.seek.value) / 10;
-    const duration = Number.isFinite(els.audio.duration) ? els.audio.duration : 0;
-    setFill(els.seek, percent);
-    $('t-cur').textContent = fmtTime((percent / 100) * duration);
-  });
-
-  els.seek.addEventListener('change', () => {
-    const percent = Number(els.seek.value) / 10;
-    const duration = Number.isFinite(els.audio.duration) ? els.audio.duration : 0;
-    if (duration) {
-      try {
-        els.audio.currentTime = (percent / 100) * duration;
-      } catch {}
-    }
-    seeking = false;
-  });
-
-  els.audio.addEventListener('play', updatePlayIcon);
-  els.audio.addEventListener('pause', updatePlayIcon);
-  els.audio.addEventListener('timeupdate', updateSeekUI);
-  els.audio.addEventListener('loadedmetadata', updateSeekUI);
-  els.audio.addEventListener('durationchange', updateSeekUI);
-  els.audio.addEventListener('waiting', () => setBuffer(true));
-  els.audio.addEventListener('playing', () => setBuffer(false));
-  els.audio.addEventListener('canplay', () => setBuffer(false));
 
   els.audio.addEventListener('ended', () => {
-    if (state.queue.length > 1) step(1);
-    else updatePlayIcon();
+    playNextTrack();
   });
 
-  els.audio.addEventListener('error', async () => {
-    if (!state.current || retriedStream >= 1) return;
-    retriedStream += 1;
-    const position = els.audio.currentTime || 0;
-    toast('Ссылка на поток обновилась — продолжаем');
-    await fetchStream({ autoplay: true, resumeAt: position });
+  els.audio.addEventListener('timeupdate', () => {
+    if (state.isSeeking) return;
+    const cur = els.audio.currentTime || 0;
+    const dur = els.audio.duration || 0;
+
+    els.timeCurrent.textContent = formatDuration(cur);
+    els.timeTotal.textContent = formatDuration(dur);
+
+    if (dur > 0) {
+      const val = (cur / dur) * 1000;
+      els.seekSlider.value = val;
+      els.seekSlider.style.backgroundSize = `${(val / 1000) * 100}% 100%`;
+    }
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (event.target.matches('input, select, textarea, button, a')) return;
-    if (event.code !== 'Space') return;
-    if (els.app.hidden) return;
-    event.preventDefault();
-    togglePlay();
+  // Controls Event Listeners
+  els.ctrlPlay.addEventListener('click', () => {
+    if (!state.currentTrack && state.filteredTracks.length) {
+      playTrack(state.filteredTracks[0], 0);
+      return;
+    }
+    if (state.isPlaying) state.audio.pause();
+    else state.audio.play().catch(console.error);
   });
 
-  window.addEventListener('popstate', () => {
-    if (els.app.hidden) return;
-    const id = parseHash();
-    if (id && id !== state.playlistId) openPlaylist(id, { push: false });
+  els.ctrlNext.addEventListener('click', playNextTrack);
+  els.ctrlPrev.addEventListener('click', playPrevTrack);
+
+  els.seekSlider.addEventListener('input', () => {
+    state.isSeeking = true;
+    const dur = els.audio.duration || 0;
+    const cur = (els.seekSlider.value / 1000) * dur;
+    els.timeCurrent.textContent = formatDuration(cur);
+    els.seekSlider.style.backgroundSize = `${(els.seekSlider.value / 1000) * 100}% 100%`;
   });
-}
 
-function init() {
-  wireStatic();
+  els.seekSlider.addEventListener('change', () => {
+    const dur = els.audio.duration || 0;
+    els.audio.currentTime = (els.seekSlider.value / 1000) * dur;
+    state.isSeeking = false;
+  });
 
-  if (!['BASIC', 'HIGH', 'ULTRA'].includes(state.quality)) state.quality = 'HIGH';
-  els.quality.value = state.quality;
-  updateQualityLabel();
+  // Quality switch (seamless reload at same time)
+  els.streamQuality.value = state.quality;
+  els.streamQuality.addEventListener('change', async (e) => {
+    const newQual = e.target.value;
+    state.quality = newQual;
+    localStorage.setItem('lane_quality', newQual);
 
-  let volume = 0.9;
-  try {
-    const stored = localStorage.getItem('lane.volume');
-    if (stored != null) volume = Number(stored);
-  } catch {}
-  if (!Number.isFinite(volume)) volume = 0.9;
-  setVolume(volume);
-
-  (async () => {
-    try {
-      const res = await fetch('/api/me', { headers: { accept: 'application/json' }, credentials: 'same-origin' });
-      if (res.ok) {
-        const me = await res.json();
-        enterApp(me);
-        return;
+    if (state.currentTrack && !els.audio.paused) {
+      const curTime = els.audio.currentTime;
+      showToast(`Качество: ${newQual}`);
+      const res = await api(`/api/stream?trackId=${encodeURIComponent(state.currentTrack.songId)}&refId=${encodeURIComponent(state.activePlaylistId)}&quality=${newQual}`);
+      if (res.ok && res.data?.url) {
+        els.audio.src = res.data.url;
+        els.audio.currentTime = curTime;
+        els.audio.play().catch(console.error);
       }
-    } catch {}
-    showLanding();
-  })();
-}
+    }
+  });
 
-document.addEventListener('DOMContentLoaded', init);
+  // Volume
+  els.volumeSlider.value = state.volume * 100;
+  els.volumeSlider.style.backgroundSize = `${state.volume * 100}% 100%`;
+  els.volumeSlider.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) / 100;
+    state.volume = val;
+    state.isMuted = val === 0;
+    els.audio.volume = val;
+    localStorage.setItem('lane_volume', String(val));
+    els.volumeSlider.style.backgroundSize = `${val * 100}% 100%`;
+    els.volIcon.setAttribute('href', state.isMuted ? '#i-mute' : '#i-vol');
+  });
+
+  els.btnVolMute.addEventListener('click', () => {
+    state.isMuted = !state.isMuted;
+    els.audio.volume = state.isMuted ? 0 : state.volume;
+    els.volIcon.setAttribute('href', state.isMuted ? '#i-mute' : '#i-vol');
+    if (!state.isMuted && state.volume === 0) {
+      state.volume = 0.5;
+      els.audio.volume = 0.5;
+      els.volumeSlider.value = 50;
+      els.volumeSlider.style.backgroundSize = '50% 100%';
+    }
+  });
+
+  // --- Search / Filter ---
+  els.searchTracks.addEventListener('input', (e) => {
+    state.searchQuery = e.target.value;
+    els.btnClearSearch.hidden = !state.searchQuery;
+    applyTrackFilter();
+  });
+
+  els.btnClearSearch.addEventListener('click', () => {
+    state.searchQuery = '';
+    els.searchTracks.value = '';
+    els.btnClearSearch.hidden = true;
+    applyTrackFilter();
+  });
+
+  // Play All Button
+  els.btnPlayAll.addEventListener('click', () => {
+    if (state.filteredTracks.length) {
+      playTrack(state.filteredTracks[0], 0);
+    }
+  });
+
+  // Load More Tracks
+  els.btnLoadMore.addEventListener('click', () => {
+    loadPlaylistTracks(state.activePlaylistId, state.page + 1);
+  });
+
+  // Likes pill click
+  document.getElementById('pill-likes').addEventListener('click', () => {
+    selectPlaylist('lane_likes', 'Мне нравится');
+  });
+
+  // --- Config Modal & Export ---
+  async function openConfigModal() {
+    els.modalConfig.hidden = false;
+    els.codeConfigText.textContent = 'Загрузка данных сессии...';
+
+    const res = await api('/api/config');
+    if (!res.ok || !res.data) {
+      els.codeConfigText.textContent = 'Ошибка загрузки конфигурации.';
+      return;
+    }
+
+    state.configData = res.data;
+    els.codeConfigText.textContent = JSON.stringify(res.data, null, 2);
+  }
+
+  function closeConfigModal() {
+    els.modalConfig.hidden = true;
+  }
+
+  els.btnOpenConfig.addEventListener('click', openConfigModal);
+  els.btnDashExport.addEventListener('click', openConfigModal);
+  els.btnCloseModal.addEventListener('click', closeConfigModal);
+  els.modalConfigBackdrop.addEventListener('click', closeConfigModal);
+
+  els.btnCopyConfig.addEventListener('click', () => {
+    if (!state.configData) return;
+    navigator.clipboard.writeText(JSON.stringify(state.configData, null, 2)).then(() => {
+      showToast('Конфиг скопирован в буфер обмена', 'success');
+    });
+  });
+
+  els.btnDownloadConfig.addEventListener('click', () => {
+    if (!state.configData) return;
+    const blob = new Blob([JSON.stringify(state.configData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'laned.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Файл laned.json скачан', 'success');
+  });
+
+  // Copy Buttons
+  els.btnCopyUrl.addEventListener('click', () => {
+    if (!state.auth.url) return;
+    navigator.clipboard.writeText(state.auth.url).then(() => {
+      showToast('Ссылка скопирована', 'success');
+    });
+  });
+
+  els.btnCopyLdi.addEventListener('click', () => {
+    if (!state.session?.ldi) return;
+    navigator.clipboard.writeText(state.session.ldi).then(() => {
+      showToast('LDI скопирован', 'success');
+    });
+  });
+
+  // Tab switching in Auth
+  els.tabQr.addEventListener('click', () => {
+    els.tabQr.classList.add('active');
+    els.tabDirect.classList.remove('active');
+    els.paneQr.hidden = false;
+    els.paneDirect.hidden = true;
+  });
+
+  els.tabDirect.addEventListener('click', () => {
+    els.tabDirect.classList.add('active');
+    els.tabQr.classList.remove('active');
+    els.paneDirect.hidden = false;
+    els.paneQr.hidden = true;
+  });
+
+  els.btnStartAuth.addEventListener('click', startAuth);
+  els.btnRestartAuth.addEventListener('click', startAuth);
+  els.btnLogout.addEventListener('click', logout);
+
+  // Keyboard Shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      els.ctrlPlay.click();
+    } else if (e.code === 'ArrowRight') {
+      e.preventDefault();
+      els.audio.currentTime = Math.min(els.audio.duration || 0, els.audio.currentTime + 5);
+    } else if (e.code === 'ArrowLeft') {
+      e.preventDefault();
+      els.audio.currentTime = Math.max(0, els.audio.currentTime - 5);
+    } else if (e.code === 'Escape') {
+      closeConfigModal();
+    }
+  });
+
+  // Initial Boot
+  async function init() {
+    // Check existing session
+    const res = await api('/api/me');
+    if (res.ok && res.data?.ldi) {
+      showAppView(res.data);
+    } else {
+      showAuthView();
+    }
+
+    // Ping health for status pill
+    api('/api/health').then((h) => {
+      if (h.ok) {
+        els.upstreamPill.title = `Соединение с ${h.data?.upstream || 'Lane API'}: активно`;
+      }
+    });
+  }
+
+  init();
+})();

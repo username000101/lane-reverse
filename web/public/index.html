@@ -1,355 +1,423 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lane Web — вся музыка в одном окне</title>
-<meta name="description" content="Неофициальный веб-клиент Lane: плейлисты и стриминг в браузере. Вход через официального Telegram-бота, без пароля.">
-<meta name="theme-color" content="#06060a">
-<meta property="og:title" content="Lane Web">
-<meta property="og:description" content="Плейлисты и стриминг Lane в браузере. Вход через официального Telegram-бота.">
-<meta property="og:type" content="website">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="/styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lane // Proxy Gateway</title>
+  <meta name="description" content="Минималистичный веб-клиент и прокси-шлюз Lane: авторизация через официального Telegram-бота, подписанные запросы и аудиостриминг.">
+  <meta name="theme-color" content="#09090b">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
-<div class="bg" aria-hidden="true">
-  <div class="orb orb-a"></div>
-  <div class="orb orb-b"></div>
-  <div class="orb orb-c"></div>
-  <div class="grain"></div>
-</div>
+  <!-- SVG Sprite -->
+  <svg class="sprite" aria-hidden="true" focusable="false" style="display:none">
+    <symbol id="i-tg" viewBox="0 0 24 24"><path fill="currentColor" d="M21.9 3.4 2.7 10.9c-.9.3-.9 1.6.1 1.9l4.6 1.4 1.7 5.1c.2.7 1.1.9 1.6.3l2.5-2.6 4.6 3.4c.6.4 1.5.1 1.6-.7l3-14.1c.2-.9-.7-1.6-1.5-1.2ZM9.6 14.1l8.1-5.2-6.4 6.6-.2 3.5-1.5-4.9Z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.14v13.72c0 .8.87 1.3 1.56.9l10.5-6.86a1.06 1.06 0 0 0 0-1.8L9.56 4.24A1.06 1.06 0 0 0 8 5.14Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4h3.2v16H7zM13.8 4H17v16h-3.2z"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path fill="currentColor" d="M5 5h2.2v14H5zM20 5.5v13a1 1 0 0 1-1.55.83l-9.2-6.5a1 1 0 0 1 0-1.66l9.2-6.5A1 1 0 0 1 20 5.5Z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M16.8 5H19v14h-2.2zM4 5.5v13a1 1 0 0 0 1.55.83l9.2-6.5a1 1 0 0 0 0-1.66l-9.2-6.5A1 1 0 0 0 4 5.5Z"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M20 11.5a8 8 0 0 0-14.8-3.4L2.5 16M4 12.5a8 8 0 0 0 14.8 3.4L21.5 8"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+  </svg>
 
-<svg class="sprite" aria-hidden="true" focusable="false">
-  <symbol id="i-telegram" viewBox="0 0 24 24"><path d="M21.9 3.4 2.7 10.9c-.9.3-.9 1.6.1 1.9l4.6 1.4 1.7 5.1c.2.7 1.1.9 1.6.3l2.5-2.6 4.6 3.4c.6.4 1.5.1 1.6-.7l3-14.1c.2-.9-.7-1.6-1.5-1.2ZM9.6 14.1l8.1-5.2-6.4 6.6-.2 3.5-1.5-4.9Z"/></symbol>
-  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.14v13.72c0 .8.87 1.3 1.56.9l10.5-6.86a1.06 1.06 0 0 0 0-1.8L9.56 4.24A1.06 1.06 0 0 0 8 5.14Z"/></symbol>
-  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4h3.2v16H7zM13.8 4H17v16h-3.2z"/></symbol>
-  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M5 5h2.2v14H5zM20 5.5v13a1 1 0 0 1-1.55.83l-9.2-6.5a1 1 0 0 1 0-1.66l9.2-6.5A1 1 0 0 1 20 5.5Z"/></symbol>
-  <symbol id="i-next" viewBox="0 0 24 24"><path d="M16.8 5H19v14h-2.2zM4 5.5v13a1 1 0 0 0 1.55.83l9.2-6.5a1 1 0 0 0 0-1.66l-9.2-6.5A1 1 0 0 0 4 5.5Z"/></symbol>
-  <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
-  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4.4 2.9 7.8 7 9 4.1-1.2 7-4.6 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
-  <symbol id="i-wave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 10v4M8 6v12M12 9v6M16 4v16M20 10v4"/></symbol>
-  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></symbol>
-  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
-  <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
-  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
-</svg>
+  <div class="shell">
+    <!-- Top Navigation Bar -->
+    <header class="header">
+      <div class="header-left">
+        <a href="/" class="brand" aria-label="Lane Proxy">
+          <div class="brand-bars" aria-hidden="true">
+            <span class="bar bar-1"></span>
+            <span class="bar bar-2"></span>
+            <span class="bar bar-3"></span>
+          </div>
+          <span class="brand-title">LANE</span>
+          <span class="brand-tag">PROXY</span>
+        </a>
 
-<header class="topbar">
-  <a class="brand" href="/" aria-label="Lane Web — на главную">
-    <span class="brand-mark" aria-hidden="true">
-      <span></span><span></span><span></span>
-    </span>
-    <span class="brand-text">Lane<span class="brand-pill">web</span></span>
-  </a>
-
-  <nav class="topnav" id="topnav">
-    <a href="#how">Как это работает</a>
-    <a href="#why">Под капотом</a>
-  </nav>
-
-  <div class="topbar-right">
-    <button class="btn btn-ghost btn-sm" id="top-login">Войти</button>
-    <div class="user-chip" id="user-chip" hidden>
-      <span class="avatar sm" id="top-avatar" aria-hidden="true"></span>
-      <span class="user-chip-name" id="top-name"></span>
-      <button class="icon-btn" id="top-logout" title="Выйти" aria-label="Выйти">
-        <svg class="i"><use href="#i-logout"/></svg>
-      </button>
-    </div>
-  </div>
-</header>
-
-<main>
-  <!-- ============================== LANDING ============================== -->
-  <section id="landing">
-
-    <div class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow reveal">
-          <span class="pulse-dot"></span>
-          неофициальный веб-клиент Lane
+        <div class="upstream-badge" id="upstream-pill" title="Статус соединения с бэкендом">
+          <span class="dot-pulse"></span>
+          <span class="upstream-text">ru.laneapi.com:443</span>
         </div>
-
-        <h1 class="reveal delay-1">
-          Вся твоя музыка.<br>
-          <em>В одном окне.</em>
-        </h1>
-
-        <p class="hero-lead reveal delay-2">
-          Плейлисты и стриминг — прямо в браузере.
-          Вход через официального Telegram-бота: без пароля, без установки приложения
-          и без единого запроса из твоего браузера во внутренний API.
-        </p>
-
-        <div class="cta-row reveal delay-3">
-          <button class="btn btn-primary btn-lg" id="hero-login">
-            <svg class="i"><use href="#i-telegram"/></svg>
-            Войти через Telegram
-          </button>
-          <a class="btn btn-ghost btn-lg" href="#how">
-            Как это работает
-            <svg class="i"><use href="#i-arrow"/></svg>
-          </a>
-        </div>
-
-        <ul class="hero-facts reveal delay-4">
-          <li><svg class="i"><use href="#i-shield"/></svg> токен не покидает сервер</li>
-          <li><svg class="i"><use href="#i-wave"/></svg> до 320 kbps</li>
-          <li><svg class="i"><use href="#i-check"/></svg> ничего не хранится в базе</li>
-        </ul>
       </div>
 
-      <div class="hero-art reveal delay-2" aria-hidden="true">
-        <div class="art-glow"></div>
-        <div class="art-ring"></div>
-
-        <div class="art-card">
-          <div class="art-cover">
-            <div class="vinyl"></div>
-            <span class="cover-tag">lane · mix</span>
-          </div>
-          <div class="art-body">
-            <div class="art-eyebrow">сейчас играет</div>
-            <div class="art-title">Night Transit</div>
-            <div class="art-artist">lane · ULTRA 320</div>
-            <div class="eq" aria-hidden="true">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <div class="header-right">
+        <!-- Auth Actions (shown when authenticated) -->
+        <div class="user-bar" id="user-bar" hidden>
+          <div class="user-badge" id="user-badge">
+            <span class="user-avatar" id="user-avatar">?</span>
+            <div class="user-meta">
+              <span class="user-name" id="user-name">Загрузка...</span>
+              <span class="user-handle" id="user-handle">@telegram</span>
             </div>
-            <div class="art-progress"><span></span></div>
           </div>
+
+          <button class="btn btn-ghost btn-sm" id="btn-open-config" title="Экспорт конфигурации laned.json">
+            <svg class="icon"><use href="#i-terminal"/></svg>
+            <span class="btn-text">Конфиг CLI</span>
+          </button>
+
+          <button class="btn btn-ghost btn-sm btn-icon" id="btn-logout" title="Выйти из аккаунта" aria-label="Выйти">
+            <svg class="icon"><use href="#i-logout"/></svg>
+          </button>
         </div>
 
-        <div class="float float-a">
-          <svg class="i"><use href="#i-shield"/></svg>
-          подпись на сервере
-        </div>
-        <div class="float float-b">
-          <svg class="i"><use href="#i-telegram"/></svg>
-          Telegram auth
-        </div>
-        <div class="float float-c">
-          <span class="float-dot"></span>
-          ULTRA · 320 kbps
+        <div class="unauth-status" id="unauth-status">
+          <span class="tag-status">Шлюз готов</span>
         </div>
       </div>
-    </div>
+    </header>
 
-    <!-- ---------------------------- steps ---------------------------- -->
-    <section class="steps" id="how">
-      <article class="step reveal">
-        <div class="step-top">
-          <span class="step-num">01</span>
-          <svg class="i step-ico"><use href="#i-telegram"/></svg>
-        </div>
-        <h3>Открываешь бота</h3>
-        <p>Сайт создаёт одноразовый ключ сессии и отправляет тебя в официальный <b>@lane_music_bot</b>.</p>
-      </article>
-
-      <article class="step reveal delay-1">
-        <div class="step-top">
-          <span class="step-num">02</span>
-          <svg class="i step-ico"><use href="#i-check"/></svg>
-        </div>
-        <h3>Жмёшь Start</h3>
-        <p>Telegram подтверждает аккаунт. Сайт замечает это за пару секунд — обновлять ничего не нужно.</p>
-      </article>
-
-      <article class="step reveal delay-2">
-        <div class="step-top">
-          <span class="step-num">03</span>
-          <svg class="i step-ico"><use href="#i-wave"/></svg>
-        </div>
-        <h3>Слушаешь</h3>
-        <p>Плейлисты и треки подтягиваются через подписанный прокси. Нажимаешь play — играет.</p>
-      </article>
-    </section>
-
-    <!-- --------------------------- features --------------------------- -->
-    <section class="features" id="why">
-      <div class="section-head reveal">
-        <div class="eyebrow">под капотом</div>
-        <h2>Прокси, который знает подпись</h2>
-        <p>Lane подписывает каждый запрос HMAC-SHA256 и кастомным RC4. Мы повторяем этот алгоритм на сервере — браузер отправляет только обычные запросы к своему же сайту.</p>
-      </div>
-
-      <div class="feature-grid">
-        <article class="feature reveal">
-          <div class="feature-ico"><svg class="i"><use href="#i-shield"/></svg></div>
-          <h3>Токен — в HttpOnly</h3>
-          <p>JWT после входа шифруется AES-256-GCM и живёт в защищённой cookie. JavaScript страницы его не видит, в localStorage ничего не оседает.</p>
-        </article>
-
-        <article class="feature reveal delay-1">
-          <div class="feature-ico"><svg class="i"><use href="#i-wave"/></svg></div>
-          <h3>Подпись как в приложении</h3>
-          <p>Три заголовка, канонический query и зашифрованное тело — один в один с <code>BNITManager.cdrl</code>. Поэтому сервер считает запросы «своими».</p>
-        </article>
-
-        <article class="feature reveal delay-2">
-          <div class="feature-ico"><svg class="i"><use href="#i-link"/></svg></div>
-          <h3>Без базы и без следа</h3>
-          <p>Никакой БД: сессия живёт в подписанной cookie, ключи — в переменных окружения Vercel. Выйти — значит стереть cookie.</p>
-        </article>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <div class="footer-brand">
-        <span class="brand-mark sm" aria-hidden="true"><span></span><span></span><span></span></span>
-        <span>Lane Web</span>
-        <span class="footer-dot">·</span>
-        <span>сделано на Vercel</span>
-      </div>
-      <p class="footer-note">
-        Неофициальный клиент. Используй только свой аккаунт и не нарушай правила сервиса.
-      </p>
-    </footer>
-  </section>
-
-  <!-- =============================== APP =============================== -->
-  <section id="app" class="app" hidden>
-    <aside class="sidebar">
-      <div class="profile-card">
-        <span class="avatar lg" id="profile-avatar" aria-hidden="true"></span>
-        <div class="profile-main">
-          <div class="profile-name" id="profile-name">Профиль</div>
-          <div class="profile-sub" id="profile-sub">Telegram</div>
-        </div>
-        <button class="icon-btn" id="side-logout" title="Выйти" aria-label="Выйти">
-          <svg class="i"><use href="#i-logout"/></svg>
-        </button>
-      </div>
-
-      <div class="side-head">
-        <span>Плейлисты</span>
-        <span class="count" id="playlist-count">0</span>
-      </div>
-
-      <div class="playlist-list" id="playlist-list" role="list">
-        <div class="pl-skeleton"></div>
-        <div class="pl-skeleton"></div>
-        <div class="pl-skeleton"></div>
-      </div>
-
-      <div class="side-foot">
-        <svg class="i"><use href="#i-shield"/></svg>
-        запросы подписаны на сервере
-      </div>
-    </aside>
-
-    <section class="library" id="library">
-      <header class="lib-head">
-        <div class="cover xl" id="pl-cover" style="background-image:linear-gradient(135deg,#3b1f6b,#0e1630)"></div>
-        <div class="lib-info">
-          <div class="eyebrow">плейлист</div>
-          <h2 id="pl-name">Загрузка…</h2>
-          <p class="lib-desc" id="pl-desc"></p>
-          <div class="lib-meta">
-            <span id="pl-count">—</span>
-            <span class="dot">·</span>
-            <span id="pl-source">Lane</span>
-            <span class="dot">·</span>
-            <span id="pl-quality">ULTRA 320</span>
+    <!-- Main Content Area -->
+    <main class="main">
+      
+      <!-- ==================== VIEW 1: AUTH GATEWAY ==================== -->
+      <section class="view view-auth" id="view-auth">
+        <div class="auth-card">
+          <div class="card-header">
+            <div class="card-kicker">
+              <span class="kicker-num">01</span>
+              <span class="kicker-sep">/</span>
+              <span class="kicker-title">AUTHENTICATION GATEWAY</span>
+            </div>
+            <h1 class="card-title">Вход в Lane</h1>
+            <p class="card-desc">
+              Авторизация через официального бота <strong>@lane_music_bot</strong>. Токен привязывается к разовому ключу устройства и хранится в зашифрованной сессии.
+            </p>
           </div>
-          <div class="lib-actions">
-            <button class="btn btn-primary" id="play-all">
-              <svg class="i"><use href="#i-play"/></svg>
-              Слушать
+
+          <!-- Auth State: Idle (Not Started) -->
+          <div class="auth-state auth-idle" id="auth-idle">
+            <button class="btn btn-primary btn-lg btn-full" id="btn-start-auth">
+              <svg class="icon icon-tg"><use href="#i-tg"/></svg>
+              <span>Подключиться через Telegram</span>
             </button>
-            <button class="btn btn-ghost" id="shuffle">
-              <svg class="i"><use href="#i-wave"/></svg>
-              Вперемешку
+
+            <div class="features-list">
+              <div class="feat-item">
+                <svg class="feat-icon"><use href="#i-shield"/></svg>
+                <div class="feat-content">
+                  <div class="feat-title">Защита токена</div>
+                  <div class="feat-desc">AES-256-GCM в HttpOnly-cookie. Ключ не попадает в браузерный JS.</div>
+                </div>
+              </div>
+              <div class="feat-item">
+                <svg class="feat-icon"><use href="#i-terminal"/></svg>
+                <div class="feat-content">
+                  <div class="feat-title">Подписанный прокси</div>
+                  <div class="feat-desc">Запросы к API Lane автоматически заверяются алгоритмом BNIT.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auth State: Active Polling -->
+          <div class="auth-state auth-active" id="auth-active" hidden>
+            <div class="auth-tabs">
+              <button class="tab-btn active" data-auth-tab="qr" id="tab-qr">QR-код</button>
+              <button class="tab-btn" data-auth-tab="direct" id="tab-direct">Прямой переход</button>
+            </div>
+
+            <!-- Tab: QR Code -->
+            <div class="tab-pane active" id="pane-qr">
+              <div class="qr-wrapper">
+                <div class="qr-frame">
+                  <canvas id="qr-canvas" width="220" height="220"></canvas>
+                  <div class="qr-center-icon">
+                    <svg class="icon"><use href="#i-tg"/></svg>
+                  </div>
+                </div>
+                <p class="qr-hint">Наведите камеру смартфона или отсканируйте в Telegram</p>
+              </div>
+            </div>
+
+            <!-- Tab: Direct Link -->
+            <div class="tab-pane" id="pane-direct" hidden>
+              <div class="direct-wrapper">
+                <a class="btn btn-primary btn-lg btn-full" id="btn-tg-link" href="#" target="_blank" rel="noopener noreferrer">
+                  <svg class="icon icon-tg"><use href="#i-tg"/></svg>
+                  <span>Открыть @lane_music_bot</span>
+                  <svg class="icon icon-ext"><use href="#i-ext"/></svg>
+                </a>
+                <p class="direct-hint">Нажмите кнопку и подтвердите команду <code>/start</code> в боте.</p>
+              </div>
+            </div>
+
+            <!-- Copy Link Row -->
+            <div class="copy-box">
+              <div class="copy-input-wrapper">
+                <input type="text" class="copy-input" id="auth-url-input" readonly value="">
+                <button class="btn btn-ghost btn-sm" id="btn-copy-url" title="Скопировать ссылку">
+                  <svg class="icon"><use href="#i-copy"/></svg>
+                  <span>Копировать</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Status Radar -->
+            <div class="polling-status">
+              <div class="radar-dot">
+                <span class="ping-ring"></span>
+                <span class="core-dot"></span>
+              </div>
+              <div class="radar-info">
+                <div class="radar-text" id="poll-message">Ожидаем подтверждения в боте...</div>
+                <div class="radar-sub" id="poll-timer-text">Опрос каждые 2.5 с • Доступно: 20:00</div>
+              </div>
+              <button class="btn btn-ghost btn-icon btn-sm" id="btn-restart-auth" title="Перезапустить генерацию">
+                <svg class="icon"><use href="#i-refresh"/></svg>
+              </button>
+            </div>
+
+            <div class="poll-progress-track">
+              <div class="poll-progress-bar" id="poll-progress"></div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="footer-meta-line">
+              <span>ECDH/AES-256</span>
+              <span class="sep">·</span>
+              <span>BNIT v1.4.7</span>
+              <span class="sep">·</span>
+              <span>Stateless Proxy</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 2: PROXY DASHBOARD ==================== -->
+      <section class="view view-app" id="view-app" hidden>
+        
+        <!-- Dashboard Top Strip -->
+        <div class="dash-hero">
+          <div class="dash-left">
+            <div class="dash-avatar-wrapper">
+              <span class="dash-avatar" id="dash-avatar">?</span>
+            </div>
+            <div class="dash-user-info">
+              <div class="dash-welcome">
+                <h2 class="dash-name" id="dash-name">Пользователь Lane</h2>
+                <span class="dash-badge" id="dash-badge">Telegram Connected</span>
+              </div>
+              <div class="dash-tech-info">
+                <span class="tech-item" title="Device ID (LDI)">
+                  <span class="tech-label">LDI:</span>
+                  <code class="tech-val" id="dash-ldi">...</code>
+                  <button class="copy-inline-btn" id="btn-copy-ldi" title="Скопировать LDI">
+                    <svg class="icon sm"><use href="#i-copy"/></svg>
+                  </button>
+                </span>
+                <span class="sep">·</span>
+                <span class="tech-item">
+                  <span class="tech-label">Шлюз:</span>
+                  <span class="tech-val text-emerald">PROXIED & SIGNED</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-dash-export">
+              <svg class="icon"><use href="#i-terminal"/></svg>
+              <span>laned.json</span>
             </button>
           </div>
         </div>
-      </header>
 
-      <div class="track-head" aria-hidden="true">
-        <span>#</span>
-        <span></span>
-        <span>Трек</span>
-        <span class="th-dur">Длительность</span>
+        <!-- Music & Playlists Workspace -->
+        <div class="workspace">
+          <!-- Playlists Navigation Pill Selector -->
+          <div class="shelf-header">
+            <div class="shelf-nav" id="shelf-nav" role="tablist">
+              <button class="shelf-pill active" data-playlist="lane_likes" id="pill-likes">
+                <span class="pill-icon">❤️</span>
+                <span class="pill-name">Мне нравится</span>
+                <span class="pill-count" id="count-likes">-</span>
+              </button>
+              <!-- Dynamic user playlists injected here -->
+            </div>
+
+            <div class="search-box">
+              <svg class="icon search-icon"><use href="#i-search"/></svg>
+              <input type="text" class="search-input" id="search-tracks" placeholder="Поиск в плейлисте..." aria-label="Поиск треков">
+              <button class="clear-search-btn" id="btn-clear-search" hidden aria-label="Очистить поиск">
+                <svg class="icon sm"><use href="#i-close"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Playlist Info & Action Strip -->
+          <div class="playlist-meta-strip">
+            <div class="pl-meta-left">
+              <h3 class="pl-title" id="active-pl-title">Мне нравится</h3>
+              <div class="pl-details" id="active-pl-details">Загрузка треков...</div>
+            </div>
+            <div class="pl-meta-right">
+              <button class="btn btn-primary btn-sm" id="btn-play-all">
+                <svg class="icon"><use href="#i-play"/></svg>
+                <span>Слушать всё</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tracks Container -->
+          <div class="tracks-card">
+            <div class="tracks-table-head">
+              <span class="th-num">#</span>
+              <span class="th-title">Трек</span>
+              <span class="th-album">Альбом</span>
+              <span class="th-dur">Длительность</span>
+            </div>
+
+            <div class="tracks-list" id="tracks-list">
+              <!-- Skeletons -->
+              <div class="track-row skeleton"></div>
+              <div class="track-row skeleton"></div>
+              <div class="track-row skeleton"></div>
+              <div class="track-row skeleton"></div>
+            </div>
+
+            <div class="tracks-empty" id="tracks-empty" hidden>
+              <p>Нет треков для отображения</p>
+            </div>
+
+            <div class="tracks-pagination" id="tracks-pagination" hidden>
+              <button class="btn btn-ghost btn-sm" id="btn-load-more">Загрузить следующие 50 треков</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ==================== FLOATING BOTTOM PLAYER ==================== -->
+    <div class="player-bar" id="player-bar" hidden>
+      <div class="player-container">
+        
+        <!-- Track info (Left) -->
+        <div class="player-track">
+          <div class="player-cover" id="player-cover"></div>
+          <div class="player-track-info">
+            <div class="player-track-title" id="player-title">Ничего не играет</div>
+            <div class="player-track-artist" id="player-artist">—</div>
+          </div>
+          <div class="player-eq" id="player-eq" aria-hidden="true">
+            <span class="eq-b1"></span>
+            <span class="eq-b2"></span>
+            <span class="eq-b3"></span>
+          </div>
+        </div>
+
+        <!-- Player Controls (Center) -->
+        <div class="player-controls">
+          <div class="player-buttons">
+            <button class="icon-control" id="ctrl-prev" title="Предыдущий трек" aria-label="Предыдущий трек">
+              <svg class="icon"><use href="#i-prev"/></svg>
+            </button>
+            <button class="icon-control play-main" id="ctrl-play" title="Воспроизвести / Пауза" aria-label="Воспроизвести">
+              <svg class="icon" id="ctrl-play-icon"><use href="#i-play"/></svg>
+            </button>
+            <button class="icon-control" id="ctrl-next" title="Следующий трек" aria-label="Следующий трек">
+              <svg class="icon"><use href="#i-next"/></svg>
+            </button>
+          </div>
+
+          <div class="scrubber-row">
+            <span class="time-label" id="time-current">0:00</span>
+            <div class="scrubber-track" id="scrubber-track">
+              <input type="range" class="seek-slider" id="seek-slider" min="0" max="1000" value="0" step="1" aria-label="Позиция">
+            </div>
+            <span class="time-label" id="time-total">0:00</span>
+          </div>
+        </div>
+
+        <!-- Stream & Volume (Right) -->
+        <div class="player-side">
+          <!-- Quality Selector -->
+          <div class="quality-select-wrapper" title="Качество аудиопотока">
+            <select class="quality-select" id="stream-quality" aria-label="Качество">
+              <option value="ULTRA">320k ULTRA</option>
+              <option value="HIGH">192k HIGH</option>
+              <option value="BASIC">128k BASIC</option>
+            </select>
+          </div>
+
+          <!-- Volume -->
+          <div class="volume-box">
+            <button class="vol-btn" id="btn-vol-mute" aria-label="Включить / выключить звук">
+              <svg class="icon sm" id="vol-icon"><use href="#i-vol"/></svg>
+            </button>
+            <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="90" aria-label="Громкость">
+          </div>
+        </div>
+
       </div>
+    </div>
 
-      <div class="track-list" id="track-list"></div>
+    <!-- Hidden Audio Element -->
+    <audio id="audio-player" preload="metadata"></audio>
 
-      <div class="lib-more" id="lib-more" hidden>
-        <button class="btn btn-ghost" id="load-more">Показать ещё</button>
-        <span class="lib-page" id="lib-page"></span>
+    <!-- ==================== CLI CONFIG MODAL ==================== -->
+    <div class="modal" id="modal-config" hidden>
+      <div class="modal-backdrop" id="modal-config-backdrop"></div>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <svg class="icon"><use href="#i-terminal"/></svg>
+            <h3 class="modal-title">Конфигурация сессии (laned.json)</h3>
+          </div>
+          <button class="btn btn-ghost btn-icon btn-sm" id="btn-close-modal" aria-label="Закрыть">
+            <svg class="icon"><use href="#i-close"/></svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p class="modal-desc">
+            Используйте эти данные в консольных клиентах (<code>crates/laned-cli</code>, <code>crates/laned-tui</code>) или для отправки собственных подписанных запросов:
+          </p>
+
+          <div class="code-header">
+            <span class="code-lang">JSON · laned.json</span>
+            <button class="btn btn-ghost btn-sm" id="btn-copy-config">
+              <svg class="icon sm"><use href="#i-copy"/></svg>
+              <span>Копировать</span>
+            </button>
+          </div>
+          <pre class="code-pre"><code id="code-config-text">Загрузка...</code></pre>
+
+          <div class="modal-actions">
+            <button class="btn btn-primary btn-sm" id="btn-download-config">
+              <svg class="icon"><use href="#i-download"/></svg>
+              <span>Скачать laned.json</span>
+            </button>
+          </div>
+        </div>
       </div>
-
-      <div class="empty" id="library-empty" hidden>
-        <div class="empty-ico"><svg class="i"><use href="#i-music"/></svg></div>
-        <h3>Пока пусто</h3>
-        <p>Похоже, в аккаунте нет плейлистов. Загляни в приложение Lane или в бота — и возвращайся.</p>
-      </div>
-    </section>
-  </section>
-</main>
-
-<!-- ============================== MODAL ============================== -->
-<div class="modal" id="auth-modal" hidden>
-  <div class="modal-backdrop" data-close="1"></div>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-    <button class="icon-btn modal-close" id="auth-close" aria-label="Закрыть">
-      <svg class="i"><use href="#i-close"/></svg>
-    </button>
-
-    <div class="modal-body" id="auth-body">
-      <!-- подставляется из app.js -->
     </div>
-  </div>
-</div>
 
-<!-- ============================== PLAYER ============================== -->
-<div class="player" id="player" hidden>
-  <div class="now">
-    <div class="cover md" id="now-cover" style="background-image:linear-gradient(135deg,#2a1b53,#0e1630)"></div>
-    <div class="now-text">
-      <div class="now-title" id="now-title">Ничего не играет</div>
-      <div class="now-artist" id="now-artist">Выбери трек</div>
-    </div>
-    <div class="now-eq" id="now-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <!-- Toast Notification Container -->
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
   </div>
 
-  <div class="controls">
-    <div class="buttons">
-      <button class="icon-btn" id="prev" aria-label="Предыдущий трек"><svg class="i"><use href="#i-prev"/></svg></button>
-      <button class="play-btn" id="play" aria-label="Играть"><svg class="i"><use href="#i-play"/></svg></button>
-      <button class="icon-btn" id="next" aria-label="Следующий трек"><svg class="i"><use href="#i-next"/></svg></button>
-    </div>
-    <div class="seek-row">
-      <span class="time" id="t-cur">0:00</span>
-      <input class="range seek" id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Позиция трека">
-      <span class="time" id="t-dur">0:00</span>
-    </div>
-  </div>
-
-  <div class="player-right">
-    <label class="quality" title="Качество стрима">
-      <span class="quality-label">качество</span>
-      <select id="quality">
-        <option value="BASIC">BASIC · 128</option>
-        <option value="HIGH">HIGH · 192</option>
-        <option value="ULTRA">ULTRA · 320</option>
-      </select>
-    </label>
-    <div class="volume">
-      <svg class="i" aria-hidden="true"><use href="#i-wave"/></svg>
-      <input class="range vol" id="volume" type="range" min="0" max="100" value="90" aria-label="Громкость">
-    </div>
-  </div>
-</div>
-
-<audio id="audio" preload="metadata"></audio>
-<div class="toasts" id="toasts" aria-live="polite"></div>
-
-<script src="/app.js" defer></script>
+  <!-- Scripts -->
+  <script src="/qr.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
