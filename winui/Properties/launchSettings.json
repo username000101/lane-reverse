@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "LaneWinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "LaneWinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

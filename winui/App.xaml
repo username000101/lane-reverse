@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="LaneWinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:LaneWinUI"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Lane Custom Palette -->
+            <SolidColorBrush x:Key="LaneCyanBrush" Color="#00E5FF" />
+            <SolidColorBrush x:Key="LaneMintBrush" Color="#00F5A0" />
+            <SolidColorBrush x:Key="LaneBackgroundBrush" Color="#0C0C0E" />
+            <SolidColorBrush x:Key="LaneCardBrush" Color="#16161B" />
+            <SolidColorBrush x:Key="LaneCardBorderBrush" Color="#26262E" />
+            <SolidColorBrush x:Key="LaneTextSecondaryBrush" Color="#9E9EA8" />
+            <SolidColorBrush x:Key="LaneTextMutedBrush" Color="#6E6E78" />
+
+            <!-- Accent Linear Gradient -->
+            <LinearGradientBrush x:Key="LaneGradientBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#00E5FF" Offset="0.0" />
+                <GradientStop Color="#00F5A0" Offset="1.0" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
