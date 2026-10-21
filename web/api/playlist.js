@@ -31,7 +31,7 @@ module.exports = guard(async (req, res) => {
   const pageSize = clampInt(query.pageSize, 1, 50, 50);
   const segment = encodeURIComponent(id);
 
-  const [meta, tracks] = await Promise.all([
+  const [meta, tracks] = await Promise.allSettled([
     laneFetch({ path: `/playlist/${segment}`, token: session.token, ldi: session.ldi }),
     laneFetch({
       path: `/playlist/${segment}/tracks`,
@@ -41,11 +41,12 @@ module.exports = guard(async (req, res) => {
     }),
   ]);
 
-  if (!tracks.ok) return sendUpstreamError(res, tracks);
+  if (tracks.status === 'rejected') throw tracks.reason;
+  if (!tracks.value.ok) return sendUpstreamError(res, tracks.value);
 
   return json(res, 200, {
-    playlist: meta.ok ? meta.data : null,
-    tracks: tracks.data,
+    playlist: meta.status === 'fulfilled' && meta.value.ok ? meta.value.data : null,
+    tracks: tracks.value.data,
     page,
     pageSize,
   });
