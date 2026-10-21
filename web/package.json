@@ -1,0 +1,13 @@
+{
+  "name": "lane-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Веб-морда Lane: вход через официального Telegram-бота и подписанный прокси к API",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "node test/bnit.test.js",
+    "dev": "node scripts/dev-server.js"
+  }
+}
