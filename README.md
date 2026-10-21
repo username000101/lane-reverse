@@ -96,24 +96,12 @@ if (bnit_build("GET", "/user/playlists", "", NULL, 0, 0, &h) == 0) {
 crates/laned-bnit/   ядро: SHA-256/HMAC, RC4*, шифр токена, base64, UUID
 crates/laned-cli/    LaneClient + CLI (gen/dump/get/post/stream/…)
 crates/laned-tui/    ratatui-интерфейс
-web/                 веб-морда на Vercel: вход через Telegram + подписанный прокси
 include/bnit.h       C API
 docs/                алгоритм, эндпоинты, ответы, отчёт
 research/            скрипты разбора оригинальной .so + dex
 libs/                исходные .so
 http-request-dumps/  перехваченные запросы
 ```
-
-## Веб-версия
-
-[`web/`](web) — та же подпись, портированная на Node.js, и красивый браузерный
-клиент: лендинг, вход через официального `@lane_music_bot`, плейлисты и плеер.
-Браузер не видит ни JWT, ни ключа: `/api/*` — обычные Vercel Functions, сессия
-лежит в зашифрованной HttpOnly-cookie.
-
-Живая версия: <https://lane-web-rouge.vercel.app>
-
-Подробности, переменные окружения и локальный запуск — в [web/README.md](web/README.md).
 
 ## Документация
 
