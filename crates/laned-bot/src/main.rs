@@ -131,6 +131,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         log::error!("Error handling callback query: {e}");
                     }
                 }
+                Update::InlineQuery(query) => {
+                    if let Err(e) = handler_clone.handle_inline_query(query).await {
+                        log::error!("Error handling inline query: {e}");
+                    }
+                }
                 _ => {}
             }
         });

@@ -69,7 +69,12 @@ impl Messages {
                  • /track &lt;song_id&gt; — Карточка трека (лайк, добавление в плейлист, скачивание)\n\
                  • /profile — Просмотр профиля аккаунта Lane\n\
                  • /login — Авторизация через официального бота @lane_music_bot\n\
-                 • /help — Данное справочное сообщение"
+                 • /help — Данное справочное сообщение\n\n\
+                 💡 <b>Inline-режим в любом чате:</b>\n\
+                 • <code>@bot &lt;запрос&gt;</code> или <code>@bot search &lt;запрос&gt;</code> — поиск треков\n\
+                 • <code>@bot playlists</code> — поделиться плейлистами\n\
+                 • <code>@bot profile</code> — поделиться карточкой профиля\n\
+                 • <code>@bot track &lt;song_id&gt;</code> — карточка трека"
                     .to_string()
             }
             Language::En => {
@@ -80,7 +85,12 @@ impl Messages {
                  • /track &lt;song_id&gt; — Track card (like, add to playlist, download)\n\
                  • /profile — View your Lane account profile\n\
                  • /login — Authorize via official @lane_music_bot\n\
-                 • /help — This help message"
+                 • /help — This help message\n\n\
+                 💡 <b>Inline mode in any chat:</b>\n\
+                 • <code>@bot &lt;query&gt;</code> or <code>@bot search &lt;query&gt;</code> — search tracks\n\
+                 • <code>@bot playlists</code> — share playlists\n\
+                 • <code>@bot profile</code> — share profile card\n\
+                 • <code>@bot track &lt;song_id&gt;</code> — track card"
                     .to_string()
             }
         }
@@ -441,6 +451,118 @@ impl Messages {
         match lang {
             Language::Ru => "⏳ <i>Запрашиваем данные трека у серверов Lane...</i>".to_string(),
             Language::En => "⏳ <i>Requesting track data from Lane servers...</i>".to_string(),
+        }
+    }
+
+    pub fn inline_help_search_title(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "🔍 Поиск треков (search <запрос>)",
+            Language::En => "🔍 Search tracks (search <query>)",
+        }
+    }
+
+    pub fn inline_help_search_desc(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "Поиск треков на Spotify, SoundCloud и других платформах Lane",
+            Language::En => "Search tracks on Spotify, SoundCloud and other Lane platforms",
+        }
+    }
+
+    pub fn inline_help_search_text(lang: Language) -> String {
+        match lang {
+            Language::Ru => "🔍 <b>Поиск музыки в Lane</b>\n\nИспользуйте inline-поиск в любом чате:\n• <code>@bot search &lt;запрос&gt;</code>\n• или просто <code>@bot &lt;запрос&gt;</code>\n\n<i>Пример:</i> <code>@bot Queen</code>".to_string(),
+            Language::En => "🔍 <b>Search music in Lane</b>\n\nUse inline search in any chat:\n• <code>@bot search &lt;query&gt;</code>\n• or simply <code>@bot &lt;query&gt;</code>\n\n<i>Example:</i> <code>@bot Queen</code>".to_string(),
+        }
+    }
+
+    pub fn inline_help_playlists_title(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "📂 Мои плейлисты (playlists)",
+            Language::En => "📂 My playlists (playlists)",
+        }
+    }
+
+    pub fn inline_help_playlists_desc(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "Отправка ваших плейлистов из Lane в любой чат",
+            Language::En => "Share your Lane playlists in any chat",
+        }
+    }
+
+    pub fn inline_help_playlists_text(lang: Language) -> String {
+        match lang {
+            Language::Ru => "📂 <b>Плейлисты пользователя Lane</b>\n\nИспользуйте в любом чате:\n<code>@bot playlists</code>\n\n<i>Отобразит список ваших плейлистов с кнопкой перехода к трекам.</i>".to_string(),
+            Language::En => "📂 <b>Lane User Playlists</b>\n\nUse in any chat:\n<code>@bot playlists</code>\n\n<i>Displays your playlists with quick buttons to browse tracks.</i>".to_string(),
+        }
+    }
+
+    pub fn inline_help_profile_title(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "👤 Мой профиль (profile)",
+            Language::En => "👤 My profile (profile)",
+        }
+    }
+
+    pub fn inline_help_profile_desc(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "Отправка карточки вашего профиля Lane в любой чат",
+            Language::En => "Share your Lane profile card in any chat",
+        }
+    }
+
+    pub fn inline_help_profile_text(lang: Language) -> String {
+        match lang {
+            Language::Ru => "👤 <b>Профиль пользователя Lane</b>\n\nИспользуйте в любом чате:\n<code>@bot profile</code>\n\n<i>Отобразит карточку вашего аккаунта со значком и статистикой.</i>".to_string(),
+            Language::En => "👤 <b>Lane User Profile</b>\n\nUse in any chat:\n<code>@bot profile</code>\n\n<i>Displays your account card with badge and statistics.</i>".to_string(),
+        }
+    }
+
+    pub fn inline_help_track_title(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "🎵 Трек по ID (track <song_id>)",
+            Language::En => "🎵 Track by ID (track <song_id>)",
+        }
+    }
+
+    pub fn inline_help_track_desc(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "Карточка трека по идентификатору song_id",
+            Language::En => "Track card by song_id identifier",
+        }
+    }
+
+    pub fn inline_help_track_text(lang: Language) -> String {
+        match lang {
+            Language::Ru => "🎵 <b>Карточка трека по ID</b>\n\nИспользуйте в любом чате:\n<code>@bot track &lt;song_id&gt;</code>\n\n<i>Позволяет просмотреть детали трека, лайкнуть или скачать его.</i>".to_string(),
+            Language::En => "🎵 <b>Track Card by ID</b>\n\nUse in any chat:\n<code>@bot track &lt;song_id&gt;</code>\n\n<i>Allows viewing track details, liking, or downloading it.</i>".to_string(),
+        }
+    }
+
+    pub fn inline_not_authorized_title(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "🔐 Требуется авторизация в Lane",
+            Language::En => "🔐 Lane authorization required",
+        }
+    }
+
+    pub fn inline_not_authorized_desc(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "Нажмите для входа через официального бота @lane_music_bot",
+            Language::En => "Click to sign in via official @lane_music_bot",
+        }
+    }
+
+    pub fn inline_no_results_title(lang: Language, query: &str) -> String {
+        match lang {
+            Language::Ru => format!("❌ По запросу «{query}» ничего не найдено"),
+            Language::En => format!("❌ No results found for «{query}»"),
+        }
+    }
+
+    pub fn inline_no_results_desc(lang: Language) -> &'static str {
+        match lang {
+            Language::Ru => "Попробуйте изменить поисковый запрос",
+            Language::En => "Try another search query",
         }
     }
 }

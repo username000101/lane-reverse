@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use grammers_client::media::Attribute;
 use grammers_client::message::{Button, InputMessage, Message, ReplyMarkup};
-use grammers_client::update::CallbackQuery;
+use grammers_client::update::{Article, CallbackQuery, InlineQuery};
 use grammers_client::Client;
 
 use crate::i18n::{Language, Messages};
@@ -60,8 +60,15 @@ impl BotHandler {
         let user_id = Self::user_id_from_msg(&msg);
         let lang = self.get_lang_for_user(user_id).await;
 
-        if trimmed == "/start" {
-            self.cmd_start(&msg, user_id, lang).await?;
+        if trimmed == "/start" || trimmed.starts_with("/start ") {
+            let param = trimmed.trim_start_matches("/start").trim();
+            if param == "auth" || param == "login" {
+                self.cmd_login(&msg, user_id, lang).await?;
+            } else if param == "playlists" {
+                self.cmd_playlists(&msg, user_id, lang).await?;
+            } else {
+                self.cmd_start(&msg, user_id, lang).await?;
+            }
         } else if trimmed == "/help" {
             msg.respond(InputMessage::new().html(Messages::help(lang))).await?;
         } else if trimmed == "/login" || trimmed == "/auth" {
@@ -526,6 +533,37 @@ impl BotHandler {
         (card_text, ReplyMarkup::from_buttons(&rows))
     }
 
+    async fn render_track_card_inline_markup(
+        &self,
+        track: &LaneTrack,
+        _user_id: i64,
+        lang: Language,
+    ) -> ReplyMarkup {
+        let is_liked = self.sessions.is_track_liked(&track.song_id).await;
+        let like_cb = if is_liked {
+            format!("unlike:{}", track.song_id)
+        } else {
+            format!("like:{}", track.song_id)
+        };
+        let like_btn = Button::data(Messages::btn_like(lang, is_liked), like_cb.as_bytes());
+        let dl_cb = format!("dl:{}", track.song_id);
+        let dl_btn = Button::data(Messages::btn_download(lang), dl_cb.as_bytes());
+
+        let pl_cb = format!("add_to_pl:{}", track.song_id);
+        let pl_btn = Button::data(Messages::btn_add_to_playlist(lang), pl_cb.as_bytes());
+
+        ReplyMarkup::from_buttons(&[
+            vec![like_btn, dl_btn],
+            vec![pl_btn],
+        ])
+    }
+
+    async fn edit_query_message(&self, query: &CallbackQuery, new_msg: InputMessage) {
+        if let Err(e) = query.answer().edit(new_msg).await {
+            log::warn!("Failed to edit query message: {e}");
+        }
+    }
+
     async fn cmd_search(
         &self,
         msg: &Message,
@@ -728,47 +766,43 @@ impl BotHandler {
 
             if let Some(lane_client) = self.sessions.get_client(user_id).await {
                 self.prime_liked_tracks_if_needed(&lane_client).await;
-                if let Ok(msg) = query.load_message().await {
-                    match self.sessions.get_or_fetch_track(&lane_client, song_id).await {
-                        Some(track) => {
-                            let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
-                            let _ = msg.edit(InputMessage::new().html(card_text).reply_markup(markup)).await;
-                        }
-                        None => {
-                            let not_found = match lang {
-                                Language::Ru => "❌ Трек не найден.".to_string(),
-                                Language::En => "❌ Track not found.".to_string(),
-                            };
-                            let _ = msg.edit(InputMessage::new().html(not_found)).await;
-                        }
+                match self.sessions.get_or_fetch_track(&lane_client, song_id).await {
+                    Some(track) => {
+                        let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
+                        self.edit_query_message(&query, InputMessage::new().html(card_text).reply_markup(markup)).await;
+                    }
+                    None => {
+                        let not_found = match lang {
+                            Language::Ru => "❌ Трек не найден.".to_string(),
+                            Language::En => "❌ Track not found.".to_string(),
+                        };
+                        self.edit_query_message(&query, InputMessage::new().html(not_found)).await;
                     }
                 }
             }
         } else if data == "tc_back" {
             let _ = query.answer().send().await;
             if let Some(last_view) = self.sessions.get_last_view(user_id).await {
-                if let Ok(msg) = query.load_message().await {
-                    if last_view.starts_with("sp:") {
-                        let parts: Vec<&str> = last_view.split(':').collect();
-                        if parts.len() == 3 {
-                            let search_id = parts[1];
-                            let page: usize = parts[2].parse().unwrap_or(1);
-                            if let Some(cached) = self.sessions.get_search(search_id).await {
-                                let (text, markup) = self.render_search_page(search_id, &cached.query, &cached.tracks, page, lang);
-                                let _ = msg.edit(InputMessage::new().html(text).reply_markup(markup)).await;
-                            }
+                if last_view.starts_with("sp:") {
+                    let parts: Vec<&str> = last_view.split(':').collect();
+                    if parts.len() == 3 {
+                        let search_id = parts[1];
+                        let page: usize = parts[2].parse().unwrap_or(1);
+                        if let Some(cached) = self.sessions.get_search(search_id).await {
+                            let (text, markup) = self.render_search_page(search_id, &cached.query, &cached.tracks, page, lang);
+                            self.edit_query_message(&query, InputMessage::new().html(text).reply_markup(markup)).await;
                         }
-                    } else if last_view.starts_with("pl:") {
-                        let parts: Vec<&str> = last_view.split(':').collect();
-                        if parts.len() == 3 {
-                            let playlist_id = parts[1];
-                            let page: i64 = parts[2].parse().unwrap_or(1);
-                            if let Some(lane_client) = self.sessions.get_client(user_id).await {
-                                if let Ok(tracks_page) = lane_client.get_playlist_tracks(playlist_id, page, PAGE_SIZE as i64).await {
-                                    self.sessions.cache_tracks(&tracks_page.items).await;
-                                    let (text, markup) = self.render_playlist_page(playlist_id, &tracks_page, lang);
-                                    let _ = msg.edit(InputMessage::new().html(text).reply_markup(markup)).await;
-                                }
+                    }
+                } else if last_view.starts_with("pl:") {
+                    let parts: Vec<&str> = last_view.split(':').collect();
+                    if parts.len() == 3 {
+                        let playlist_id = parts[1];
+                        let page: i64 = parts[2].parse().unwrap_or(1);
+                        if let Some(lane_client) = self.sessions.get_client(user_id).await {
+                            if let Ok(tracks_page) = lane_client.get_playlist_tracks(playlist_id, page, PAGE_SIZE as i64).await {
+                                self.sessions.cache_tracks(&tracks_page.items).await;
+                                let (text, markup) = self.render_playlist_page(playlist_id, &tracks_page, lang);
+                                self.edit_query_message(&query, InputMessage::new().html(text).reply_markup(markup)).await;
                             }
                         }
                     }
@@ -786,18 +820,14 @@ impl BotHandler {
                     Ok(()) => {
                         self.sessions.set_track_liked(song_id, true).await;
                         let _ = query.answer().text(toast).send().await;
-                        if let Ok(msg) = query.load_message().await {
-                            if let Some(track) = self.sessions.get_or_fetch_track(&lane_client, song_id).await {
-                                let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
-                                let _ = msg.edit(InputMessage::new().html(card_text).reply_markup(markup)).await;
-                            }
+                        if let Some(track) = self.sessions.get_or_fetch_track(&lane_client, song_id).await {
+                            let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
+                            self.edit_query_message(&query, InputMessage::new().html(card_text).reply_markup(markup)).await;
                         }
                     }
                     Err(e) => {
                         let _ = query.answer().alert("Ошибка добавления в любимые").send().await;
-                        if let Ok(msg) = query.load_message().await {
-                            let _ = msg.edit(InputMessage::new().html(Messages::api_error(lang, &e))).await;
-                        }
+                        self.edit_query_message(&query, InputMessage::new().html(Messages::api_error(lang, &e))).await;
                     }
                 }
             }
@@ -813,18 +843,14 @@ impl BotHandler {
                     Ok(()) => {
                         self.sessions.set_track_liked(song_id, false).await;
                         let _ = query.answer().text(toast).send().await;
-                        if let Ok(msg) = query.load_message().await {
-                            if let Some(track) = self.sessions.get_or_fetch_track(&lane_client, song_id).await {
-                                let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
-                                let _ = msg.edit(InputMessage::new().html(card_text).reply_markup(markup)).await;
-                            }
+                        if let Some(track) = self.sessions.get_or_fetch_track(&lane_client, song_id).await {
+                            let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
+                            self.edit_query_message(&query, InputMessage::new().html(card_text).reply_markup(markup)).await;
                         }
                     }
                     Err(e) => {
                         let _ = query.answer().alert("Ошибка удаления из любимых").send().await;
-                        if let Ok(msg) = query.load_message().await {
-                            let _ = msg.edit(InputMessage::new().html(Messages::api_error(lang, &e))).await;
-                        }
+                        self.edit_query_message(&query, InputMessage::new().html(Messages::api_error(lang, &e))).await;
                     }
                 }
             }
@@ -835,31 +861,29 @@ impl BotHandler {
             let _ = query.answer().text("⏳ Загружаем список плейлистов...").send().await;
 
             if let Some(lane_client) = self.sessions.get_client(user_id).await {
-                if let Ok(msg) = query.load_message().await {
-                    match lane_client.get_playlists().await {
-                        Ok(playlists) => {
-                            let track = self.sessions.get_or_fetch_track(&lane_client, song_id).await;
-                            let title = track.as_ref().map(|t| t.display_title()).unwrap_or_else(|| song_id.to_string());
-                            let prompt_text = Messages::playlist_add_prompt(lang, &title);
+                match lane_client.get_playlists().await {
+                    Ok(playlists) => {
+                        let track = self.sessions.get_or_fetch_track(&lane_client, song_id).await;
+                        let title = track.as_ref().map(|t| t.display_title()).unwrap_or_else(|| song_id.to_string());
+                        let prompt_text = Messages::playlist_add_prompt(lang, &title);
 
-                            let mut buttons = Vec::new();
-                            for pl in &playlists {
-                                let icon = if pl.playlist_id == "lane_likes" { "❤️" } else { "📁" };
-                                let label = format!("{icon} {}", Messages::truncate_str(&pl.playlist_name, 26));
-                                let cb = format!("pla:{}", pl.playlist_id);
-                                buttons.push(vec![Button::data(label, cb.as_bytes())]);
-                            }
-                            buttons.push(vec![
-                                Button::data(Messages::btn_new_playlist(lang), b"prompt_create_pl"),
-                                Button::data(Messages::btn_back(lang), format!("tc:{song_id}").as_bytes()),
-                            ]);
+                        let mut buttons = Vec::new();
+                        for pl in &playlists {
+                            let icon = if pl.playlist_id == "lane_likes" { "❤️" } else { "📁" };
+                            let label = format!("{icon} {}", Messages::truncate_str(&pl.playlist_name, 26));
+                            let cb = format!("pla:{}", pl.playlist_id);
+                            buttons.push(vec![Button::data(label, cb.as_bytes())]);
+                        }
+                        buttons.push(vec![
+                            Button::data(Messages::btn_new_playlist(lang), b"prompt_create_pl"),
+                            Button::data(Messages::btn_back(lang), format!("tc:{song_id}").as_bytes()),
+                        ]);
 
-                            let markup = ReplyMarkup::from_buttons(&buttons);
-                            let _ = msg.edit(InputMessage::new().html(prompt_text).reply_markup(markup)).await;
-                        }
-                        Err(e) => {
-                            let _ = msg.edit(InputMessage::new().html(Messages::api_error(lang, &e))).await;
-                        }
+                        let markup = ReplyMarkup::from_buttons(&buttons);
+                        self.edit_query_message(&query, InputMessage::new().html(prompt_text).reply_markup(markup)).await;
+                    }
+                    Err(e) => {
+                        self.edit_query_message(&query, InputMessage::new().html(Messages::api_error(lang, &e))).await;
                     }
                 }
             }
@@ -874,22 +898,18 @@ impl BotHandler {
                             if playlist_id == "lane_likes" {
                                 self.sessions.set_track_liked(&song_id, true).await;
                             }
-                            if let Ok(msg) = query.load_message().await {
-                                if let Some(track) = self.sessions.get_or_fetch_track(&lane_client, &song_id).await {
-                                    let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
-                                    let notice = match lang {
-                                        Language::Ru => "✅ <b>Трек успешно добавлен в плейлист!</b>\n\n",
-                                        Language::En => "✅ <b>Track successfully added to playlist!</b>\n\n",
-                                    };
-                                    let full_text = format!("{notice}{card_text}");
-                                    let _ = msg.edit(InputMessage::new().html(full_text).reply_markup(markup)).await;
-                                }
+                            if let Some(track) = self.sessions.get_or_fetch_track(&lane_client, &song_id).await {
+                                let (card_text, markup) = self.render_track_card(&track, user_id, lang).await;
+                                let notice = match lang {
+                                    Language::Ru => "✅ <b>Трек успешно добавлен в плейлист!</b>\n\n",
+                                    Language::En => "✅ <b>Track successfully added to playlist!</b>\n\n",
+                                };
+                                let full_text = format!("{notice}{card_text}");
+                                self.edit_query_message(&query, InputMessage::new().html(full_text).reply_markup(markup)).await;
                             }
                         }
                         Err(e) => {
-                            if let Ok(msg) = query.load_message().await {
-                                let _ = msg.edit(InputMessage::new().html(Messages::api_error(lang, &e))).await;
-                            }
+                            self.edit_query_message(&query, InputMessage::new().html(Messages::api_error(lang, &e))).await;
                         }
                     }
                 }
@@ -899,22 +919,31 @@ impl BotHandler {
         } else if data.starts_with("dl:") {
             // Download track: dl:<song_id>
             let song_id = data.trim_start_matches("dl:");
-            let cached_track = if let Some(lane_client) = self.sessions.get_client(user_id).await {
-                self.sessions.get_or_fetch_track(&lane_client, song_id).await
+            if query.is_from_inline() {
+                let toast = match lang {
+                    Language::Ru => "📥 Отправляю трек вам в личные сообщения с ботом...",
+                    Language::En => "📥 Sending track to your private messages with bot...",
+                };
+                let _ = query.answer().text(toast).send().await;
+                self.download_and_send_track(None, user_id, song_id, lang).await?;
             } else {
-                self.sessions.find_cached_track(song_id).await
-            };
-            let popup_text = if let Some(t) = &cached_track {
-                format!("⏳ {} — {}", t.display_artist(), t.display_title())
-            } else if lang == Language::Ru {
-                "⏳ Загружаем трек...".to_string()
-            } else {
-                "⏳ Downloading track...".to_string()
-            };
-            let _ = query.answer().text(popup_text).send().await;
+                let cached_track = if let Some(lane_client) = self.sessions.get_client(user_id).await {
+                    self.sessions.get_or_fetch_track(&lane_client, song_id).await
+                } else {
+                    self.sessions.find_cached_track(song_id).await
+                };
+                let popup_text = if let Some(t) = &cached_track {
+                    format!("⏳ {} — {}", t.display_artist(), t.display_title())
+                } else if lang == Language::Ru {
+                    "⏳ Загружаем трек...".to_string()
+                } else {
+                    "⏳ Downloading track...".to_string()
+                };
+                let _ = query.answer().text(popup_text).send().await;
 
-            if let Ok(msg) = query.load_message().await {
-                self.download_and_send_track(&msg, user_id, song_id, lang).await?;
+                if let Ok(msg) = query.load_message().await {
+                    self.download_and_send_track(Some(&msg), user_id, song_id, lang).await?;
+                }
             }
         }
 
@@ -1004,7 +1033,7 @@ impl BotHandler {
 
     async fn download_and_send_track(
         &self,
-        msg: &Message,
+        msg: Option<&Message>,
         user_id: i64,
         song_id: &str,
         lang: Language,
@@ -1012,7 +1041,9 @@ impl BotHandler {
         let lane_client = match self.sessions.get_client(user_id).await {
             Some(c) => c,
             None => {
-                msg.respond(InputMessage::new().html(Messages::not_authorized(lang))).await?;
+                if let Some(m) = msg {
+                    m.respond(InputMessage::new().html(Messages::not_authorized(lang))).await?;
+                }
                 return Ok(());
             }
         };
@@ -1039,9 +1070,17 @@ impl BotHandler {
         let display_name = format!("{track_artist} — {track_title}");
 
         // 1. Initial status: Resolving stream on Lane
-        let status_msg = msg
-            .respond(InputMessage::new().html(Messages::resolving_stream(lang, &display_name)))
-            .await?;
+        let user_peer = grammers_session::types::PeerId::user_unchecked(user_id).to_ambient_ref();
+        let status_msg = if let Some(m) = msg {
+            m.respond(InputMessage::new().html(Messages::resolving_stream(lang, &display_name)))
+                .await
+                .ok()
+        } else {
+            self.client
+                .send_message(user_peer, InputMessage::new().html(Messages::resolving_stream(lang, &display_name)))
+                .await
+                .ok()
+        };
 
         // 2. Resolve stream URL
         let mut stream_url: Option<String> = None;
@@ -1066,44 +1105,52 @@ impl BotHandler {
             Some(url) => url,
             None => {
                 log::warn!("Stream resolution failed for track {song_id}");
-                status_msg
-                    .edit(InputMessage::new().html(Messages::download_error(
-                        lang,
-                        &display_name,
-                        if lang == Language::Ru {
-                            "Аудиопоток недоступен на серверах Lane"
-                        } else {
-                            "Audio stream not available on Lane servers"
-                        },
-                    )))
-                    .await?;
+                if let Some(sm) = status_msg {
+                    let _ = sm
+                        .edit(InputMessage::new().html(Messages::download_error(
+                            lang,
+                            &display_name,
+                            if lang == Language::Ru {
+                                "Аудиопоток недоступен на серверах Lane"
+                            } else {
+                                "Audio stream not available on Lane servers"
+                            },
+                        )))
+                        .await;
+                }
                 return Ok(());
             }
         };
 
         // 3. Status: Downloading audio from Lane
-        let _ = status_msg
-            .edit(InputMessage::new().html(Messages::downloading_status(lang, &display_name)))
-            .await;
+        if let Some(ref sm) = status_msg {
+            let _ = sm
+                .edit(InputMessage::new().html(Messages::downloading_status(lang, &display_name)))
+                .await;
+        }
 
         let raw_audio_bytes = match lane_client.download_audio(&resolved_url).await {
             Ok(bytes) => bytes,
             Err(e) => {
-                status_msg
-                    .edit(InputMessage::new().html(Messages::download_error(
-                        lang,
-                        &display_name,
-                        &format!("Сбой загрузки: {e}"),
-                    )))
-                    .await?;
+                if let Some(ref sm) = status_msg {
+                    let _ = sm
+                        .edit(InputMessage::new().html(Messages::download_error(
+                            lang,
+                            &display_name,
+                            &format!("Сбой загрузки: {e}"),
+                        )))
+                        .await;
+                }
                 return Ok(());
             }
         };
 
         // 4. Status: Uploading to Telegram
-        let _ = status_msg
-            .edit(InputMessage::new().html(Messages::uploading_status(lang, &display_name)))
-            .await;
+        if let Some(ref sm) = status_msg {
+            let _ = sm
+                .edit(InputMessage::new().html(Messages::uploading_status(lang, &display_name)))
+                .await;
+        }
 
         // Download cover image if available
         let mut cover_bytes: Option<Vec<u8>> = None;
@@ -1156,13 +1203,15 @@ impl BotHandler {
         let uploaded = match self.client.upload_stream(&mut cursor, size, filename).await {
             Ok(up) => up,
             Err(e) => {
-                status_msg
-                    .edit(InputMessage::new().html(Messages::download_error(
-                        lang,
-                        &display_name,
-                        &format!("Сбой отправки в Telegram: {e}"),
-                    )))
-                    .await?;
+                if let Some(ref sm) = status_msg {
+                    let _ = sm
+                        .edit(InputMessage::new().html(Messages::download_error(
+                            lang,
+                            &display_name,
+                            &format!("Сбой отправки в Telegram: {e}"),
+                        )))
+                        .await;
+                }
                 return Ok(());
             }
         };
@@ -1178,7 +1227,9 @@ impl BotHandler {
         }
 
         // 6. Delete old status message as explicitly requested
-        let _ = status_msg.delete().await;
+        if let Some(sm) = status_msg {
+            let _ = sm.delete().await;
+        }
 
         // 7. Send audio message with full metadata
         let mut audio_msg = InputMessage::new()
@@ -1194,7 +1245,393 @@ impl BotHandler {
             audio_msg = audio_msg.thumbnail(thumb);
         }
 
-        msg.respond(audio_msg).await?;
+        if let Some(m) = msg {
+            m.respond(audio_msg).await?;
+        } else {
+            self.client.send_message(user_peer, audio_msg).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn handle_inline_query(
+        &self,
+        query: InlineQuery,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let raw_text = query.text().trim();
+        let user_id = query.sender_id().bare_id_unchecked();
+        let lang = self.get_lang_for_user(user_id).await;
+        let lane_client = self.sessions.get_client(user_id).await;
+
+        let lower = raw_text.to_lowercase();
+
+        // 1. Empty or help
+        if raw_text.is_empty() || lower == "help" || lower == "/help" || lower == "?" {
+            let articles = vec![
+                Article::new(
+                    Messages::inline_help_search_title(lang),
+                    InputMessage::new().html(Messages::inline_help_search_text(lang)),
+                )
+                .description(Messages::inline_help_search_desc(lang))
+                .id("help_search"),
+
+                Article::new(
+                    Messages::inline_help_playlists_title(lang),
+                    InputMessage::new().html(Messages::inline_help_playlists_text(lang)),
+                )
+                .description(Messages::inline_help_playlists_desc(lang))
+                .id("help_playlists"),
+
+                Article::new(
+                    Messages::inline_help_profile_title(lang),
+                    InputMessage::new().html(Messages::inline_help_profile_text(lang)),
+                )
+                .description(Messages::inline_help_profile_desc(lang))
+                .id("help_profile"),
+
+                Article::new(
+                    Messages::inline_help_track_title(lang),
+                    InputMessage::new().html(Messages::inline_help_track_text(lang)),
+                )
+                .description(Messages::inline_help_track_desc(lang))
+                .id("help_track"),
+            ];
+
+            let mut answer = query.answer(articles).cache_time(5).private();
+            if lane_client.is_none() {
+                answer = answer.switch_pm(Messages::inline_not_authorized_title(lang), "auth");
+            }
+            let _ = answer.send().await;
+            return Ok(());
+        }
+
+        // 2. Playlists: "playlists", "/playlists", "pl", "/pl"
+        if lower == "playlists" || lower == "/playlists" || lower == "pl" || lower == "/pl" {
+            let client = match lane_client {
+                Some(c) => c,
+                None => {
+                    let article = Article::new(
+                        Messages::inline_not_authorized_title(lang),
+                        InputMessage::new().html(Messages::not_authorized(lang)),
+                    )
+                    .description(Messages::inline_not_authorized_desc(lang))
+                    .id("auth_required");
+                    let _ = query
+                        .answer(vec![article])
+                        .switch_pm(Messages::inline_not_authorized_title(lang), "auth")
+                        .cache_time(0)
+                        .private()
+                        .send()
+                        .await;
+                    return Ok(());
+                }
+            };
+
+            match client.get_playlists().await {
+                Ok(playlists) => {
+                    for pl in &playlists {
+                        if pl.playlist_id == "lane_likes" {
+                            self.sessions.update_liked_tracks(&pl.playlist_tracks_ids).await;
+                        }
+                    }
+
+                    if playlists.is_empty() {
+                        let empty_text = if lang == Language::Ru {
+                            "📂 <b>У вас нет плейлистов</b>\n\nСоздайте плейлист командой <code>/newplaylist &lt;название&gt;</code> в личных сообщениях с ботом."
+                        } else {
+                            "📂 <b>You have no playlists</b>\n\nCreate a playlist with <code>/newplaylist &lt;name&gt;</code> in private chat with bot."
+                        };
+                        let article = Article::new("📂 Плейлисты отсутствуют", InputMessage::new().html(empty_text))
+                            .description(if lang == Language::Ru { "Создайте плейлист через бота" } else { "Create playlist via bot" })
+                            .id("empty_playlists");
+                        let _ = query.answer(vec![article]).cache_time(5).private().send().await;
+                        return Ok(());
+                    }
+
+                    let mut articles = Vec::new();
+                    for (i, pl) in playlists.iter().enumerate() {
+                        let icon = if pl.playlist_id == "lane_likes" { "❤️" } else { "📁" };
+                        let title = format!("{icon} {}", pl.playlist_name);
+                        let count = pl.playlist_tracks_ids.len();
+                        let desc = format!("Всего треков: {count}");
+
+                        let msg_text = format!(
+                            "{icon} <b>Плейлист:</b> {}\n🎵 <b>Количество треков:</b> {}\n🔑 <b>ID:</b> <code>{}</code>",
+                            pl.playlist_name, count, pl.playlist_id
+                        );
+                        let markup = ReplyMarkup::from_buttons(&[
+                            vec![Button::data("📂 Открыть плейлист", format!("pl:{}:1", pl.playlist_id).as_bytes())],
+                        ]);
+
+                        let mut art = Article::new(title, InputMessage::new().html(msg_text).reply_markup(markup))
+                            .description(desc)
+                            .id(format!("pl_{i}_{}", pl.playlist_id));
+                        if let Some(ref img) = pl.playlist_image_url {
+                            if img.starts_with("http") {
+                                art = art.thumb_url(img);
+                            }
+                        }
+                        articles.push(art);
+                    }
+
+                    let _ = query.answer(articles).cache_time(5).private().send().await;
+                }
+                Err(e) => {
+                    log::warn!("Error fetching playlists for inline query: {e}");
+                    let err_art = Article::new(
+                        "❌ Ошибка загрузки плейлистов",
+                        InputMessage::new().html(Messages::api_error(lang, &e)),
+                    ).id("pl_err");
+                    let _ = query.answer(vec![err_art]).cache_time(0).private().send().await;
+                }
+            }
+            return Ok(());
+        }
+
+        // 3. Profile: "profile", "/profile", "me", "/me"
+        if lower == "profile" || lower == "/profile" || lower == "me" || lower == "/me" {
+            let client = match lane_client {
+                Some(c) => c,
+                None => {
+                    let article = Article::new(
+                        Messages::inline_not_authorized_title(lang),
+                        InputMessage::new().html(Messages::not_authorized(lang)),
+                    )
+                    .description(Messages::inline_not_authorized_desc(lang))
+                    .id("auth_required");
+                    let _ = query
+                        .answer(vec![article])
+                        .switch_pm(Messages::inline_not_authorized_title(lang), "auth")
+                        .cache_time(0)
+                        .private()
+                        .send()
+                        .await;
+                    return Ok(());
+                }
+            };
+
+            let (acc_res, pl_res) = tokio::join!(
+                client.get_account(),
+                client.get_playlists()
+            );
+
+            match acc_res {
+                Ok(user) => {
+                    self.sessions.update_user_profile(user_id, user.clone()).await;
+                    let playlists_count = match pl_res {
+                        Ok(ref pls) => {
+                            for pl in pls {
+                                if pl.playlist_id == "lane_likes" {
+                                    self.sessions.update_liked_tracks(&pl.playlist_tracks_ids).await;
+                                }
+                            }
+                            pls.len()
+                        }
+                        Err(_) => user.user_playlists.len() + 1,
+                    };
+
+                    let card = Messages::profile_card(
+                        lang,
+                        user.displayed_name.as_deref().unwrap_or("—"),
+                        user.user_name.as_deref().unwrap_or("—"),
+                        user.lane_id.as_deref().unwrap_or("—"),
+                        user.country_code.as_deref().unwrap_or("—"),
+                        user.interface_language.as_deref().unwrap_or("—"),
+                        playlists_count,
+                        user.equipped_badge_id.as_deref().unwrap_or("—"),
+                    );
+
+                    let markup = ReplyMarkup::from_buttons(&[
+                        vec![
+                            Button::data(Messages::btn_refresh(lang), b"refresh_profile"),
+                            Button::data(Messages::btn_playlists(lang), b"user_playlists"),
+                        ],
+                    ]);
+
+                    let clean_name = crate::lane_client::clean_invisible(user.displayed_name.as_deref().unwrap_or("User"));
+                    let article = Article::new(
+                        format!("👤 {}", clean_name),
+                        InputMessage::new().html(card).reply_markup(markup),
+                    )
+                    .description(format!("Username: @{} | Плейлистов: {playlists_count}", user.user_name.as_deref().unwrap_or("—")))
+                    .id("user_profile");
+
+                    let _ = query.answer(vec![article]).cache_time(5).private().send().await;
+                }
+                Err(e) => {
+                    let err_art = Article::new(
+                        "❌ Ошибка загрузки профиля",
+                        InputMessage::new().html(Messages::api_error(lang, &e)),
+                    ).id("profile_err");
+                    let _ = query.answer(vec![err_art]).cache_time(0).private().send().await;
+                }
+            }
+            return Ok(());
+        }
+
+        // 4. Track by ID: "track <song_id>", "/track <song_id>", "song <song_id>"
+        if lower.starts_with("track ") || lower.starts_with("/track ") || lower.starts_with("song ") || lower.starts_with("/song ") {
+            let song_id = raw_text
+                .trim_start_matches("/track")
+                .trim_start_matches("track")
+                .trim_start_matches("/song")
+                .trim_start_matches("song")
+                .trim();
+
+            if song_id.is_empty() {
+                let article = Article::new(
+                    Messages::inline_help_track_title(lang),
+                    InputMessage::new().html(Messages::inline_help_track_text(lang)),
+                )
+                .description("Введите идентификатор трека: track <song_id>")
+                .id("track_hint");
+                let _ = query.answer(vec![article]).cache_time(5).private().send().await;
+                return Ok(());
+            }
+
+            let client = match lane_client {
+                Some(c) => c,
+                None => {
+                    let article = Article::new(
+                        Messages::inline_not_authorized_title(lang),
+                        InputMessage::new().html(Messages::not_authorized(lang)),
+                    )
+                    .description(Messages::inline_not_authorized_desc(lang))
+                    .id("auth_required");
+                    let _ = query
+                        .answer(vec![article])
+                        .switch_pm(Messages::inline_not_authorized_title(lang), "auth")
+                        .cache_time(0)
+                        .private()
+                        .send()
+                        .await;
+                    return Ok(());
+                }
+            };
+
+            self.prime_liked_tracks_if_needed(&client).await;
+
+            match self.sessions.get_or_fetch_track(&client, song_id).await {
+                Some(track) => {
+                    let card_text = Messages::track_card(lang, &track);
+                    let markup = self.render_track_card_inline_markup(&track, user_id, lang).await;
+
+                    let title = format!("🎵 {} — {}", track.display_artist(), track.display_title());
+                    let desc = format!("💿 {} | ⏱ {} | 🌐 {}", track.display_album(), track.display_duration(), track.platform);
+
+                    let mut art = Article::new(title, InputMessage::new().html(card_text).reply_markup(markup))
+                        .description(desc)
+                        .id(format!("trk_{song_id}"));
+                    if let Some(ref cover) = track.cover_url {
+                        if cover.starts_with("http") {
+                            art = art.thumb_url(cover);
+                        }
+                    }
+
+                    let _ = query.answer(vec![art]).cache_time(5).private().send().await;
+                }
+                None => {
+                    let not_found_title = format!("❌ Трек с ID {} не найден", song_id);
+                    let art = Article::new(
+                        not_found_title,
+                        InputMessage::new().text(format!("Track with ID {song_id} not found.")),
+                    )
+                    .id("track_not_found");
+                    let _ = query.answer(vec![art]).cache_time(5).private().send().await;
+                }
+            }
+            return Ok(());
+        }
+
+        // 5. Search: "search <query>", "/search <query>", or any direct text query
+        let query_str = if lower.starts_with("search ") || lower.starts_with("/search ") {
+            raw_text
+                .trim_start_matches("/search")
+                .trim_start_matches("search")
+                .trim()
+        } else {
+            raw_text
+        };
+
+        if query_str.is_empty() {
+            let article = Article::new(
+                Messages::inline_help_search_title(lang),
+                InputMessage::new().html(Messages::inline_help_search_text(lang)),
+            )
+            .description(Messages::inline_help_search_desc(lang))
+            .id("search_hint");
+            let _ = query.answer(vec![article]).cache_time(5).private().send().await;
+            return Ok(());
+        }
+
+        let client = match lane_client {
+            Some(c) => c,
+            None => {
+                let article = Article::new(
+                    Messages::inline_not_authorized_title(lang),
+                    InputMessage::new().html(Messages::not_authorized(lang)),
+                )
+                .description(Messages::inline_not_authorized_desc(lang))
+                .id("auth_required");
+                let _ = query
+                    .answer(vec![article])
+                    .switch_pm(Messages::inline_not_authorized_title(lang), "auth")
+                    .cache_time(0)
+                    .private()
+                    .send()
+                    .await;
+                return Ok(());
+            }
+        };
+
+        self.prime_liked_tracks_if_needed(&client).await;
+
+        match client.search(query_str).await {
+            Ok(tracks) => {
+                if tracks.is_empty() {
+                    let no_res_art = Article::new(
+                        Messages::inline_no_results_title(lang, query_str),
+                        InputMessage::new().html(Messages::no_results(lang, query_str)),
+                    )
+                    .description(Messages::inline_no_results_desc(lang))
+                    .id("no_results");
+                    let _ = query.answer(vec![no_res_art]).cache_time(5).private().send().await;
+                    return Ok(());
+                }
+
+                self.sessions.cache_tracks(&tracks).await;
+
+                let mut articles = Vec::with_capacity(tracks.len().min(30));
+                for (idx, t) in tracks.iter().take(30).enumerate() {
+                    let card_text = Messages::track_card(lang, t);
+                    let markup = self.render_track_card_inline_markup(t, user_id, lang).await;
+
+                    let title = format!("🎵 {} — {}", t.display_artist(), t.display_title());
+                    let desc = format!("💿 {} | ⏱ {} | 🌐 {}", t.display_album(), t.display_duration(), t.platform);
+
+                    let mut art = Article::new(title, InputMessage::new().html(card_text).reply_markup(markup))
+                        .description(desc)
+                        .id(format!("s_{idx}_{}", t.song_id));
+
+                    if let Some(ref cover) = t.cover_url {
+                        if cover.starts_with("http") {
+                            art = art.thumb_url(cover);
+                        }
+                    }
+                    articles.push(art);
+                }
+
+                let _ = query.answer(articles).cache_time(5).private().send().await;
+            }
+            Err(e) => {
+                log::warn!("Inline search error: {e}");
+                let err_art = Article::new(
+                    "❌ Ошибка поиска",
+                    InputMessage::new().html(Messages::api_error(lang, &e)),
+                ).id("search_err");
+                let _ = query.answer(vec![err_art]).cache_time(0).private().send().await;
+            }
+        }
+
         Ok(())
     }
 }
@@ -1316,6 +1753,63 @@ mod tests {
         assert_eq!(store.get_active_track(101).await, None);
         store.set_active_track(101, "trk_abc").await;
         assert_eq!(store.get_active_track(101).await.as_deref(), Some("trk_abc"));
+    }
+
+    #[test]
+    fn test_inline_i18n_strings() {
+        let ru_title = Messages::inline_help_search_title(Language::Ru);
+        assert!(ru_title.contains("Поиск треков"));
+
+        let en_title = Messages::inline_help_search_title(Language::En);
+        assert!(en_title.contains("Search tracks"));
+
+        let ru_pl = Messages::inline_help_playlists_desc(Language::Ru);
+        assert!(ru_pl.contains("плейлистов"));
+
+        let no_res = Messages::inline_no_results_title(Language::Ru, "Unknown");
+        assert!(no_res.contains("Unknown"));
+    }
+
+    #[test]
+    fn test_inline_command_matching() {
+        let parse_inline = |raw: &str| -> (&'static str, String) {
+            let trimmed = raw.trim();
+            let lower = trimmed.to_lowercase();
+            if trimmed.is_empty() || lower == "help" || lower == "/help" || lower == "?" {
+                ("help", String::new())
+            } else if lower == "playlists" || lower == "/playlists" || lower == "pl" || lower == "/pl" {
+                ("playlists", String::new())
+            } else if lower == "profile" || lower == "/profile" || lower == "me" || lower == "/me" {
+                ("profile", String::new())
+            } else if lower.starts_with("track ") || lower.starts_with("/track ") || lower.starts_with("song ") || lower.starts_with("/song ") {
+                let id = trimmed
+                    .trim_start_matches("/track")
+                    .trim_start_matches("track")
+                    .trim_start_matches("/song")
+                    .trim_start_matches("song")
+                    .trim();
+                ("track", id.to_string())
+            } else {
+                let q = if lower.starts_with("search ") || lower.starts_with("/search ") {
+                    trimmed.trim_start_matches("/search").trim_start_matches("search").trim()
+                } else {
+                    trimmed
+                };
+                ("search", q.to_string())
+            }
+        };
+
+        assert_eq!(parse_inline(""), ("help", "".to_string()));
+        assert_eq!(parse_inline("/help"), ("help", "".to_string()));
+        assert_eq!(parse_inline("playlists"), ("playlists", "".to_string()));
+        assert_eq!(parse_inline("/pl"), ("playlists", "".to_string()));
+        assert_eq!(parse_inline("profile"), ("profile", "".to_string()));
+        assert_eq!(parse_inline("/me"), ("profile", "".to_string()));
+        assert_eq!(parse_inline("track 12345"), ("track", "12345".to_string()));
+        assert_eq!(parse_inline("/song abcdef"), ("track", "abcdef".to_string()));
+        assert_eq!(parse_inline("search Queen"), ("search", "Queen".to_string()));
+        assert_eq!(parse_inline("/search Bohemian"), ("search", "Bohemian".to_string()));
+        assert_eq!(parse_inline("Bohemian Rhapsody"), ("search", "Bohemian Rhapsody".to_string()));
     }
 
     #[tokio::test]
