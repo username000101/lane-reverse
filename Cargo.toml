@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/laned-bnit",
+    "crates/laned-cli",
+    "crates/laned-tui",
+]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+codegen-units = 1

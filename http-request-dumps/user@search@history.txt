@@ -1,0 +1,14 @@
+GET https://ru.laneapi.com/user/search/history HTTP/2.0 
+authorization: Bearer <token> 
+x-accept-red: 1 
+x-client-meta: 7Sk7MqOyiK5YEvtn6TAWljgYSUev5iJR 
+x-request-trace-id: 5455d583-6f86-aade-f5b7-6e7ab64cf59e 
+x-core-token: zJKQAzXvwvJZO9rQ3MWutGaUPW26GJMD0IjeR1DS2YUHrrOsXz03gVrEiAyycu-MueuzZYKgOwfDJxIu24CW5cB2_gTlbwtCQ5rToh8_TUod1ksJgqB3QtzUoFnprRDK7WodO_B9J2fIR5N1Arz_HmriOQheoWoQ69SNOkEf_ielgy_EQkB26SDyCKWl6TeeNKTDWPZM6a7weEKF7UM2vfG. 
+accept-language: ru 
+ldi: <ldi>
+tz: Europe/Moscow 
+x-app-version: 207 
+x-platform: android 
+x-theme: dark 
+user-agent: LaneMusic/1.0 (Android; Mobile) 
+accept-encoding: gzip

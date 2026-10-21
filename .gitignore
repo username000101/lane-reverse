@@ -1,0 +1,22 @@
+# Артефакты сборки
+/target/
+*.exe
+*.dll
+*.pdb
+*.lib
+*.rlib
+*.exp
+
+# временные файлы
+body.bin
+resp.txt
+
+# тяжёлые исходники (APK можно скачать отдельно)
+*.apk
+
+# локальный конфиг с device id и bearer-токеном
+laned.json
+
+# реальный снимок /proc/self/maps (не публикуем)
+maps.txt
+research/dex_strings.txt

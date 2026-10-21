@@ -1,0 +1,13 @@
+[package]
+name = "laned-bnit"
+version.workspace = true
+edition.workspace = true
+description = "Restored request-signing algorithm of the Lane app (libbnit.so)"
+
+[lib]
+name = "laned_bnit"
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[dependencies]
+flate2 = "1"
+getrandom = "0.2"

@@ -1,0 +1,16 @@
+[package]
+name = "laned-tui"
+version.workspace = true
+edition.workspace = true
+description = "Terminal UI for browsing Lane playlists and resolving stream URLs"
+
+[[bin]]
+name = "laned-tui"
+path = "src/main.rs"
+
+[dependencies]
+laned-bnit = { path = "../laned-bnit" }
+laned-cli = { path = "../laned-cli" }
+ratatui = "0.29"
+crossterm = "0.28"
+serde_json = "1"

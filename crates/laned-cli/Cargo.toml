@@ -1,0 +1,19 @@
+[package]
+name = "laned-cli"
+version.workspace = true
+edition.workspace = true
+description = "Signed HTTP client + CLI for the Lane API"
+
+[lib]
+name = "laned_client"
+path = "src/lib.rs"
+
+[[bin]]
+name = "laned"
+path = "src/main.rs"
+
+[dependencies]
+laned-bnit = { path = "../laned-bnit" }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "json"] }
+serde_json = "1"
+url = "2"

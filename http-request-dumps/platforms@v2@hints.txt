@@ -1,0 +1,14 @@
+GET https://ru.laneapi.com/platforms/v2/hints?q=%D0%B7%D0%B0%D0%BF%D1%80%D0%BE%D1%81 HTTP/2.0 
+authorization: Bearer <token>
+x-accept-red: 1 
+x-client-meta: 0mIBRiF9cJThncDLN0NAfAOCcAEONukq 
+x-core-token: feiMhD0Ap9CPQvEw3zUoeiY1Zb7j9d78_DeTWV2ZCx9ONQ-E1ohBu0IsI_bUorH3gWio99A3nc1kb4WyfhrdOfmwWObDf_IW4VcM2uqbfSG_dWepXXQEwCZUvS-8tGurirD1BSoUfTFmEL5iXbcxcNcdK4dRtisKg5SBqe-JXwir4x9TewzmEhuVnHmsy9FTGc_A2Y0kkRI2vIZT3Vy2GXA. 
+x-request-trace-id: 55617559-0cfc-c54d-bd18-fc627270d00b 
+accept-language: ru 
+ldi: <token> 
+tz: Europe/Moscow 
+x-app-version: 207 
+x-platform: android 
+x-theme: dark 
+user-agent: LaneMusic/1.0 (Android; Mobile) 
+accept-encoding: gzip
