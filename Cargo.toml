@@ -4,6 +4,7 @@ members = [
     "crates/laned-bnit",
     "crates/laned-cli",
     "crates/laned-tui",
+    "crates/laned-bot",
 ]
 
 [workspace.package]

@@ -8,6 +8,7 @@
 | [`laned-bnit`](crates/laned-bnit) | сама логика: 3 заголовка + шифрованное тело, C API |
 | [`laned-cli`](crates/laned-cli) | библиотека `LaneClient` (подписанный HTTP) + бинарь `laned` |
 | [`laned-tui`](crates/laned-tui) | терминальный браузер: плейлисты → треки → ссылка на поток |
+| [`laned-bot`](crates/laned-bot) | Telegram-бот на `grammers` (поиск, скачивание в чат, плейлисты, профиль) |
 
 ```
 JSON-тело ──RC4*(KEY‖nonce‖ts)──► тело запроса (для POST)
