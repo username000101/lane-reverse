@@ -20,3 +20,6 @@ laned.json
 # реальный снимок /proc/self/maps (не публикуем)
 maps.txt
 research/dex_strings.txt
+
+# локальные скриншоты веб-морды
+web/shot-*.png
