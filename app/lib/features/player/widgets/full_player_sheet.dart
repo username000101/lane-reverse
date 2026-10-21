@@ -22,16 +22,22 @@ class FullPlayerSheet extends StatelessWidget {
         final track = controller.currentTrack;
         if (track == null) return const SizedBox.shrink();
 
+        final screenHeight = MediaQuery.of(context).size.height;
+        final coverSize = (screenHeight * 0.32).clamp(150.0, 280.0);
+
         return Container(
-          height: MediaQuery.of(context).size.height * 0.88,
+          constraints: BoxConstraints(
+            maxHeight: screenHeight * 0.90,
+          ),
           decoration: const BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Top Grab Bar
                   Container(
@@ -42,7 +48,7 @@ class FullPlayerSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
 
                   // Header with Quality Selector
                   Row(
@@ -60,13 +66,13 @@ class FullPlayerSheet extends StatelessWidget {
                       _buildQualityPill(context),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 20),
 
                   // Big Cover Art
                   Center(
                     child: Container(
-                      width: 280,
-                      height: 280,
+                      width: coverSize,
+                      height: coverSize,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
@@ -94,7 +100,7 @@ class FullPlayerSheet extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 20),
 
                   // Track Info
                   Column(
