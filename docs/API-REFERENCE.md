@@ -115,6 +115,69 @@
 | DELETE | `user/unfollow/{id}` | path `id` | `Unit` |
 | DELETE | `user/unsubscribe/album/{id}` | path `id` | `Unit` |
 
+## Тела запросов (модели)
+
+Модели — `@Serializable` из `com.skiy.lane.domain.model`. Имена JSON-полей
+совпадают с именами свойств (проверено по дескриптору сериализатора
+`CreatePlaylist$$serializer`). Все POST-тела **шифруются** — в `build()` это
+открытый JSON, на провод уходит `out.payload`.
+
+### Плейлисты
+
+| Модель | Поля |
+|---|---|
+| `CreatePlaylist` | `playlistName` string, `playlistDescription` string, `playlistImageUrl` string, `playlistTracks` string[], `creatorLid` string |
+| `EditPlaylist` | `playlistId` string, `playlistName` string, `playlistDescription` string, `playlistImageUrl` string |
+| `ReorderPlaylistRequest` | `playlistId` string, `newOrder` string[] |
+| `SetPlaylistVisibilityRequest` | `visibility` string (`public` / `private`) |
+| `InviteUsersRequest` | `userIds` string[] |
+| `RespondToInvitationRequest` | `invitationId` string, `accept` bool |
+
+Пример создания:
+
+```json
+{"playlistName":"test","playlistDescription":"","playlistTracks":[],"playlistImageUrl":""}
+```
+
+Пример добавления треков (тело — просто массив, без обёртки):
+
+```json
+["2lEbe9evbwJ1unoQAb0uPk","7gZ2rXMb72TPDtkysmAgAR"]
+```
+
+### Треки и профиль
+
+| Модель | Поля |
+|---|---|
+| `TrackIds` | `trackIds` string[] — **проверено вживую** |
+| `SetStatusTrackRequest` | `trackId` string |
+| `EditProfileData` | `name` string, `username` string, `avatarUrl` string, `headerUrl` string, `statusText` string |
+| `UpdatePrivacyRequest` | `showFollowers` bool, `showFollowing` bool, `showPlaylists` bool |
+| `UpdatePresenceRequest` | `trackId` string, `positionMs` long, `isPaused` bool |
+| `UpdateFcmRequest` | `token` string |
+| `EquipBadgeRequest` | `badgeId` string |
+
+### Комментарии
+
+| Модель | Поля |
+|---|---|
+| `CreateTrackComment` | `trackId` string, `text` string, `attachment` string |
+| `CreateReply` | `text` string, `attachment` string, `replyToUserId` string |
+
+### Прочее
+
+| Модель | Поля |
+|---|---|
+| `PlaceCandleRequest` | `text` string |
+| `SubmitOnboardingRequest` | `artistIds` string[] |
+| `ResolveArtistsRequest` | `artistIds` string[], `platform` string |
+| `SearchClickEvent` | `query` string, `token` string, `type` string, `entityId` string |
+| `P2PCallbackRequest` | `requestId` string, `statusCode` int, `responseBody` string, `errorMessage` string |
+| `ImageUploadResponse` (ответ) | `url` string |
+
+> Схемы ответов `PlaylistCreationResponse`, `BulkInvitationResponse`,
+> `CreatedCommentResponse` ещё не сняты — известны только имена моделей.
+
 ## Telegram-авторизация
 
 Полная спецификация флоу — в [AUTH.md](./AUTH.md).

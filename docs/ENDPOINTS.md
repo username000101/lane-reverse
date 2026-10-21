@@ -163,6 +163,52 @@ Object i(@Query("trackId") String, @Query("refId") String,
 
 ---
 
+## 4.3. Запись: плейлисты, лайки, подписки
+
+Всё это уже есть в API. Пути и тела — из `UserApi`/`TracksApi` APK 1.4.7,
+поля моделей — в [API-REFERENCE.md](./API-REFERENCE.md#тела-запросов-модели).
+
+| Действие | Запрос | Тело |
+|---|---|---|
+| Создать плейлист | `POST /create-playlist` | `CreatePlaylist` |
+| Переименовать / сменить обложку | `POST /edit-playlist` | `EditPlaylist` |
+| Удалить плейлист | `GET /delete-playlist?playlistId=…` | — |
+| Сохранить чужой плейлист | `GET /user/playlist/add?playlistId=…` | — |
+| Добавить треки | `POST /user/playlist/add-tracks?playlistId=…` | `["songId", …]` |
+| Удалить трек | `GET /user/playlist/remove-track?playlistId=…&trackId=…` | — |
+| Переупорядочить | `POST /playlist/reorder` | `ReorderPlaylistRequest` |
+| Приватность | `POST /playlist/{id}/visibility` | `SetPlaylistVisibilityRequest` |
+| Пригласить соавторов | `POST /playlist/{id}/invite` | `InviteUsersRequest` |
+| Подписка на артиста | `POST /user/subscribe/artist/{id}` / `DELETE /user/unsubscribe/artist/{id}` | — |
+| Подписка на альбом | `POST user/subscribe/album/{id}` / `DELETE user/unsubscribe/album/{id}` | — |
+| Статус «слушаю трек» | `POST user/status` | `SetStatusTrackRequest` |
+
+**Лайков как отдельной ручки нет.** Лайк — это добавление в личный плейлист
+`lane_likes`:
+
+```
+поставить:  POST /user/playlist/add-tracks?playlistId=lane_likes   ["<songId>"]
+убрать:     GET  /user/playlist/remove-track?playlistId=lane_likes&trackId=<songId>
+```
+
+Лайки комментариев — отдельно: `POST`/`DELETE comment/{commentId}/like`.
+
+Два API-курьёза: удаление плейлиста — **GET** `/delete-playlist`, а удаление
+трека из плейлиста — тоже GET (`/user/playlist/remove-track`), хотя это
+изменяющие операции.
+
+Тело POST, как и везде, **шифруется** (`body` в `build()` — открытый JSON,
+отправляется `out.payload`). Примеры:
+
+```powershell
+laned post /user/playlist/add-tracks "playlistId=lane_likes" --body '["2lEbe9evbwJ1unoQAb0uPk"]'
+laned get  /user/playlist/remove-track "playlistId=lane_likes&trackId=2lEbe9evbwJ1unoQAb0uPk"
+laned post /create-playlist "" --body '{"playlistName":"test","playlistDescription":"","playlistTracks":[],"playlistImageUrl":""}'
+laned get  /delete-playlist "playlistId=<id>"
+```
+
+---
+
 ## 5. Про `INVALID_SIGNATURE` на `/user/search/history` — разобрано
 
 По дампу этот эндпоинт подписан ровно так:
@@ -202,9 +248,14 @@ GET:/user/search/history::<ts>:<nonce>::<boot_id>:<inode>
 
 ## 7. Чего здесь нет
 
-- POST/PUT/DELETE (кроме факта, что `/user/tracks` — POST, а GET даёт 405);
+- живых подтверждений write-ручек (§4.3): пути и тела известны из APK, но
+  запросы не проверялись (кроме `/user/tracks`);
+- точных значений `visibility` (в UI переключатель `public`/`private`, строка
+  уходит как есть);
+- схем ответов `PlaylistCreationResponse`, `BulkInvitationResponse`;
 - точного окна `ts` (ошибка `TIMESTAMP_EXPIRED` есть, границы не измерены);
-- разгадки `hints`.
+- разгадки `hints` — оба дампа с ним побиты.
 
-Схемы ответов — в [RESPONSES.md](./RESPONSES.md). Всё выше — из дампов;
-живых запросов к сервису я не отправлял.
+Схемы ответов — в [RESPONSES.md](./RESPONSES.md), тела запросов — в
+[API-REFERENCE.md](./API-REFERENCE.md#тела-запросов-модели). Всё выше — из
+дампов и APK; живых запросов к сервису я не отправлял.
